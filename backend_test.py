@@ -6,16 +6,15 @@ import json
 from datetime import datetime, timedelta
 import time
 
-class KAIFMarketplaceAPITester:
+class CoopCatalogTester:
     def __init__(self, base_url="https://coop-catalog.preview.emergentagent.com"):
         self.base_url = base_url
         self.api_url = f"{base_url}/api"
-        self.tokens = {}
-        self.user_ids = {}
+        self.admin_token = None
         self.test_data = {}
         self.tests_run = 0
         self.tests_passed = 0
-        self.failures = []
+        self.failed_tests = []
 
     def log(self, message, level="INFO"):
         """Log test messages"""
