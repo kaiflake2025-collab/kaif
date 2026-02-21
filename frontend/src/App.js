@@ -57,6 +57,7 @@ function AppRouter() {
         <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>
       <CookieConsent />
+      <FloatingChat />
     </>
   );
 }
