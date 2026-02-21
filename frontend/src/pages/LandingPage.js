@@ -1,7 +1,7 @@
-import React from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { useLanguage } from '../contexts/LanguageContext';
 import { useNavigate } from 'react-router-dom';
-import { Search, ArrowRight, ShieldCheck, Users, TrendingUp, Handshake, Apple, Wrench, Building, Truck, Cpu, Shirt, HeartPulse, GraduationCap, Home, Package } from 'lucide-react';
+import { Search, ArrowRight, ShieldCheck, Users, TrendingUp, Handshake, Apple, Wrench, Building, Truck, Cpu, Shirt, HeartPulse, GraduationCap, Home, Package, Newspaper, Play, Pause, Volume2 } from 'lucide-react';
 import { Button } from '../components/ui/button';
 
 const HERO_BG = "https://customer-assets.emergentagent.com/job_coop-catalog/artifacts/t03m8pqx_%D1%84%D0%BE%D1%82%D0%BE%20%D0%BA%D0%B0%D0%B9%D1%84.jpg";
