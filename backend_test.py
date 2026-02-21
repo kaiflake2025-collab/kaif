@@ -16,34 +16,26 @@ class CoopCatalogTester:
         self.tests_passed = 0
         self.failed_tests = []
 
-    def log(self, message, level="INFO"):
-        """Log test messages"""
-        timestamp = datetime.now().strftime("%H:%M:%S")
-        print(f"[{timestamp}] {level}: {message}")
-
-    def run_test(self, name, method, endpoint, expected_status, data=None, headers=None, user_role=None):
+    def run_test(self, name, method, endpoint, expected_status, data=None, headers=None):
         """Run a single API test"""
         url = f"{self.api_url}/{endpoint}"
-        
-        # Set up headers
         req_headers = {'Content-Type': 'application/json'}
         if headers:
             req_headers.update(headers)
-        if user_role and user_role in self.tokens:
-            req_headers['Authorization'] = f'Bearer {self.tokens[user_role]}'
 
         self.tests_run += 1
-        self.log(f"🔍 Testing {name} [{method} {endpoint}]")
+        print(f"\n🔍 Testing {name}...")
+        print(f"   URL: {method} {url}")
         
         try:
             if method == 'GET':
-                response = requests.get(url, headers=req_headers, timeout=30)
+                response = requests.get(url, headers=req_headers)
             elif method == 'POST':
-                response = requests.post(url, json=data, headers=req_headers, timeout=30)
+                response = requests.post(url, json=data, headers=req_headers)
             elif method == 'PUT':
-                response = requests.put(url, json=data, headers=req_headers, timeout=30)
+                response = requests.put(url, json=data, headers=req_headers)
             elif method == 'DELETE':
-                response = requests.delete(url, headers=req_headers, timeout=30)
+                response = requests.delete(url, headers=req_headers)
 
             success = response.status_code == expected_status
             if success:
