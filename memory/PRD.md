@@ -44,12 +44,14 @@ Multi-functional aggregator website for the "KAIF OZERO" consumer cooperative. T
 - Knowledge Base Page
 - Rules Page, Offer Page
 - Auth Page
+- **User Guide Page** (accordion FAQ for Clients, Shareholders, General — RU/EN/ZH)
 
 ### UI/UX
 - Floating Chat Button with admin messaging (real-time polling)
 - Cookie Consent Banner
 - Dark theme default with light mode toggle
 - i18n (RU, EN, ZH)
+- **Footer links**: Правила сервиса, Публичная оферта, Руководство
 
 ### Backend API Endpoints
 - `/api/auth/{register, login, me, logout, session}`
