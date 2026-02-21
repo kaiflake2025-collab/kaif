@@ -1,69 +1,103 @@
-# PRD: КАЙФ ОЗЕРО — Сайт-Агрегатор Кооператива
+# KAIF OZERO — Product Requirements Document
 
-## Проблема
-Создать многофункциональный веб-сайт (агрегатор) для потребительского кооператива «КАЙФ ОЗЕРО», объединяющий товары и услуги пайщиков в единую витрину.
+## Original Problem Statement
+Multi-functional aggregator website for the "KAIF OZERO" consumer cooperative. The platform unites goods and services from all cooperative members into a single showcase.
 
-## Архитектура
-- **Frontend**: React 19 + Tailwind CSS + Shadcn UI
-- **Backend**: FastAPI (Python)
-- **Database**: MongoDB (motor async)
-- **Auth**: JWT + Emergent Google OAuth
-- **i18n**: RU / EN / ZH
-- **Тема**: Dark (default) / Light toggle
+## Users
+- **Admin**: Full platform management
+- **Shareholders (Sellers)**: Post products/services, manage deals, view registry
+- **Clients (Buyers)**: Browse catalog, send requests, favorites
 
-## Пользователи
-- **Клиент** (покупатель) — просмотр каталога, избранное, запросы на покупку/обмен
-- **Пайщик** (поставщик) — управление товарами, просмотр сделок, статистика
-- **Администратор** — модерация, управление пользователями, аналитика
-- **Представитель** — встречи с клиентами (в планах)
+## Core Requirements
+- Three-tier user system with JWT auth
+- Multi-language (RU, EN, ZH)
+- Dark/Light theme
+- Product catalog with categories, search, filters
+- Deal & exchange mechanism with 1.5% commission
+- Representative meetings via CRM
+- Admin panel (users, products, news, KB, ticker, registry)
+- Legal pages (Rules, Public Offer)
+- Cookie consent banner
 
-## Реализовано (MVP) — Январь 2026
+## Implemented Features (as of Feb 2026)
 
-### Backend API
-- Auth: register, login, me, session (Google OAuth), logout
-- Products: CRUD, search, filter, categories (10 категорий)
-- Deals: create, list, confirm, complete, cancel + комиссия 1.5%
-- Meetings: create, list, assign, complete
-- Favorites: add, remove, list
-- Messages: send, list, conversations
-- Admin: users CRUD, products moderation, deals, stats
-- Shareholder stats
+### Authentication & Users
+- JWT-based register/login for Admin, Shareholder, Client
+- Google OAuth (Emergent-managed) session support
+- User profile management, role management (admin)
+
+### Content Management (Admin)
+- Users CRUD (block, verify, role change)
+- Products moderation (approve/reject)
+- Knowledge Base CRUD (5 categories)
+- News CRUD (images, audio, content)
+- Running Ticker CRUD
+- **Shareholder Registry CRUD** (name, number, INN, phone, email, pai amount, status, join date, notes)
 
 ### Frontend Pages
-- Landing Page (hero, категории, как работает, trust)
-- Auth (login/register с выбором роли + Google OAuth)
-- Каталог (поиск, фильтр по категории, карточки товаров)
-- Детальная страница товара (Купить/Обменять/Запросить встречу)
-- Дашборд пайщика (товары, сделки, встречи, статистика)
-- Дашборд клиента (избранное, сделки, встречи)
-- Админ-панель (пользователи, товары, сделки, аналитика)
-- Переключатель языков (RU/EN/ZH)
-- Переключатель темы (тёмная/светлая)
+- Landing Page (hero, categories, news section, ticker, footer)
+- Catalog Page
+- Product Detail Page (Buy/Exchange/Meeting buttons - UI only)
+- Admin Panel (7 tabs: Users, Products, Deals, KB, News, Ticker, Registry)
+- Shareholder Dashboard (Products, Deals, Meetings, Registry read-only)
+- Client Dashboard
+- Knowledge Base Page
+- Rules Page, Offer Page
+- Auth Page
 
-### Тестовые данные
-- seller@test.com / test1234 (пайщик)
-- buyer@test.com / test1234 (клиент)
-- admin@test.com / admin1234 (админ)
+### UI/UX
+- Floating Chat Button with admin messaging (real-time polling)
+- Cookie Consent Banner
+- Dark theme default with light mode toggle
+- i18n (RU, EN, ZH)
 
-## Backlog (P0-P2)
+### Backend API Endpoints
+- `/api/auth/{register, login, me, logout, session}`
+- `/api/products`, `/api/products/{id}`, `/api/my-products`
+- `/api/deals`, `/api/deals/{id}/{confirm,complete,cancel}`
+- `/api/meetings`, `/api/meetings/{id}/{assign,complete}`
+- `/api/favorites`, `/api/favorites/{id}`
+- `/api/messages`, `/api/messages/conversations`
+- `/api/admin/{users, products, deals, stats}`
+- `/api/knowledge-base`, `/api/knowledge-base/{id}`
+- `/api/news`, `/api/news/{id}`
+- `/api/ticker`, `/api/ticker/{id}`
+- `/api/registry`, `/api/registry/{id}`
+- `/api/admin-chat`
+- `/api/users/profile`, `/api/users/{id}/public`
+- `/api/shareholder/stats`
 
-### P0 — Критичные
-- Интеграция оплаты (ЮKassa, Сбербанк) — сейчас mock
-- Интеграция Bitrix24 CRM — сейчас mock
-- Загрузка изображений товаров
-- Реальная верификация пайщиков по номеру/ИНН
+## DB Collections
+- `users`, `products`, `deals`, `meetings`, `favorites`, `messages`
+- `knowledge_base`, `news`, `ticker`, `registry`, `admin_chat`, `user_sessions`
 
-### P1 — Важные
-- Telegram-уведомления
-- Внутренний чат между клиентами и пайщиками (UI)
-- Дашборд представителей
-- Колл-центр модуль
-- Экспорт данных в бухгалтерию
+## Mocked/Placeholder Features
+- Buy/Exchange/Meeting buttons on product page (UI only)
 
-### P2 — Улучшения
-- PDF-каталоги для пайщиков
-- Геолокация представителей
-- Рейтинги и отзывы
-- Расширенная аналитика с графиками
-- Push-уведомления
-- SEO-оптимизация
+## P0 — Upcoming Tasks
+- Chat functionality backend improvements (WebSocket for real-time)
+- Payment integration (YuKassa / Sberbank)
+- CRM integration (Bitrix24)
+
+## P1 — Future Tasks
+- Telegram notifications
+- Full deal/exchange workflow
+- Commission calculation engine
+- Advanced admin analytics
+- Representative & Call-Center roles
+
+## P2 — Backlog
+- Refactor AdminPanel.js into sub-components
+- File upload for products/news
+- Advanced search filters
+
+## Tech Stack
+- Backend: FastAPI + MongoDB (Motor)
+- Frontend: React + Tailwind CSS + Shadcn/UI
+- i18n: i18next + react-i18next
+- Auth: JWT + bcrypt
+
+## Test Credentials
+- Admin: admin@test.com / admin1234
+- Seller: seller@test.com / test1234
+- Buyer: buyer@test.com / test1234
