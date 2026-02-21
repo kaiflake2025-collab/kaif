@@ -4,7 +4,7 @@ import { useNavigate } from 'react-router-dom';
 import { Search, ArrowRight, ShieldCheck, Users, TrendingUp, Handshake, Apple, Wrench, Building, Truck, Cpu, Shirt, HeartPulse, GraduationCap, Home, Package } from 'lucide-react';
 import { Button } from '../components/ui/button';
 
-const HERO_BG = "https://images.unsplash.com/photo-1738965190071-a6569b1fab55?crop=entropy&cs=srgb&fm=jpg&ixid=M3w3NTY2OTV8MHwxfHNlYXJjaHwzfHxteXN0ZXJpb3VzJTIwbGFrZSUyMG5hdHVyZSUyMGZvZyUyMHN1bnJpc2V8ZW58MHx8fHwxNzcxNjU0NDAyfDA&ixlib=rb-4.1.0&q=85";
+const HERO_BG = "https://customer-assets.emergentagent.com/job_coop-catalog/artifacts/t03m8pqx_%D1%84%D0%BE%D1%82%D0%BE%20%D0%BA%D0%B0%D0%B9%D1%84.jpg";
 const TRUST_IMG = "https://images.pexels.com/photos/7413989/pexels-photo-7413989.jpeg";
 
 const CATEGORY_ICONS = {
