@@ -133,7 +133,7 @@ export default function LandingPage() {
               )}
               <div className="relative z-10">
                 <Icon className="h-6 w-6 text-primary mb-2" />
-                <span className="text-sm font-medium">{cat.id}</span>
+                <span className="text-sm font-medium">{CATEGORY_NAMES[cat.id]?.[lang] || cat.id}</span>
               </div>
             </button>
           )})}
