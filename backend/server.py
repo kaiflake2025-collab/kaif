@@ -1,4 +1,5 @@
-from fastapi import FastAPI, APIRouter
+from fastapi import FastAPI, APIRouter, HTTPException, Request, Response, Depends, Query, UploadFile, File
+from fastapi.responses import JSONResponse
 from dotenv import load_dotenv
 from starlette.middleware.cors import CORSMiddleware
 from motor.motor_asyncio import AsyncIOMotorClient
@@ -6,10 +7,12 @@ import os
 import logging
 from pathlib import Path
 from pydantic import BaseModel, Field, ConfigDict
-from typing import List
+from typing import List, Optional
 import uuid
-from datetime import datetime, timezone
-
+import bcrypt
+import jwt
+import httpx
+from datetime import datetime, timezone, timedelta
 
 ROOT_DIR = Path(__file__).parent
 load_dotenv(ROOT_DIR / '.env')
@@ -19,54 +22,780 @@ mongo_url = os.environ['MONGO_URL']
 client = AsyncIOMotorClient(mongo_url)
 db = client[os.environ['DB_NAME']]
 
-# Create the main app without a prefix
-app = FastAPI()
+JWT_SECRET = os.environ.get('JWT_SECRET', 'kaif-ozero-secret-key-2024')
+JWT_ALGORITHM = "HS256"
+JWT_EXPIRY_HOURS = 168  # 7 days
 
-# Create a router with the /api prefix
+app = FastAPI()
 api_router = APIRouter(prefix="/api")
 
+# Configure logging
+logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(name)s - %(levelname)s - %(message)s')
+logger = logging.getLogger(__name__)
 
-# Define Models
-class StatusCheck(BaseModel):
-    model_config = ConfigDict(extra="ignore")  # Ignore MongoDB's _id field
-    
-    id: str = Field(default_factory=lambda: str(uuid.uuid4()))
-    client_name: str
-    timestamp: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
+# ============ MODELS ============
 
-class StatusCheckCreate(BaseModel):
-    client_name: str
+class UserRegister(BaseModel):
+    email: str
+    password: str
+    name: str
+    role: str = "client"  # client, shareholder
+    phone: Optional[str] = None
+    shareholder_number: Optional[str] = None
+    inn: Optional[str] = None
 
-# Add your routes to the router instead of directly to app
-@api_router.get("/")
-async def root():
-    return {"message": "Hello World"}
+class UserLogin(BaseModel):
+    email: str
+    password: str
 
-@api_router.post("/status", response_model=StatusCheck)
-async def create_status_check(input: StatusCheckCreate):
-    status_dict = input.model_dump()
-    status_obj = StatusCheck(**status_dict)
-    
-    # Convert to dict and serialize datetime to ISO string for MongoDB
-    doc = status_obj.model_dump()
-    doc['timestamp'] = doc['timestamp'].isoformat()
-    
-    _ = await db.status_checks.insert_one(doc)
-    return status_obj
+class UserUpdate(BaseModel):
+    name: Optional[str] = None
+    phone: Optional[str] = None
+    avatar: Optional[str] = None
+    shareholder_number: Optional[str] = None
+    inn: Optional[str] = None
 
-@api_router.get("/status", response_model=List[StatusCheck])
-async def get_status_checks():
-    # Exclude MongoDB's _id field from the query results
-    status_checks = await db.status_checks.find({}, {"_id": 0}).to_list(1000)
-    
-    # Convert ISO string timestamps back to datetime objects
-    for check in status_checks:
-        if isinstance(check['timestamp'], str):
-            check['timestamp'] = datetime.fromisoformat(check['timestamp'])
-    
-    return status_checks
+class ProductCreate(BaseModel):
+    title: str
+    description: str
+    category: str
+    price: Optional[float] = None
+    currency: str = "RUB"
+    region: Optional[str] = None
+    contacts: Optional[str] = None
+    images: List[str] = []
+    tags: List[str] = []
+    exchange_available: bool = False
 
-# Include the router in the main app
+class ProductUpdate(BaseModel):
+    title: Optional[str] = None
+    description: Optional[str] = None
+    category: Optional[str] = None
+    price: Optional[float] = None
+    currency: Optional[str] = None
+    region: Optional[str] = None
+    contacts: Optional[str] = None
+    images: Optional[List[str]] = None
+    tags: Optional[List[str]] = None
+    exchange_available: Optional[bool] = None
+
+class DealCreate(BaseModel):
+    product_id: str
+    deal_type: str = "buy"  # buy, exchange
+    message: Optional[str] = None
+    offered_product_id: Optional[str] = None
+
+class MeetingRequest(BaseModel):
+    product_id: str
+    preferred_date: Optional[str] = None
+    message: Optional[str] = None
+
+class MessageCreate(BaseModel):
+    receiver_id: str
+    content: str
+    deal_id: Optional[str] = None
+
+# ============ AUTH HELPERS ============
+
+def create_jwt(user_id: str, role: str) -> str:
+    payload = {
+        "user_id": user_id,
+        "role": role,
+        "exp": datetime.now(timezone.utc) + timedelta(hours=JWT_EXPIRY_HOURS),
+        "iat": datetime.now(timezone.utc)
+    }
+    return jwt.encode(payload, JWT_SECRET, algorithm=JWT_ALGORITHM)
+
+def hash_password(password: str) -> str:
+    return bcrypt.hashpw(password.encode('utf-8'), bcrypt.gensalt()).decode('utf-8')
+
+def verify_password(password: str, hashed: str) -> bool:
+    return bcrypt.checkpw(password.encode('utf-8'), hashed.encode('utf-8'))
+
+async def get_current_user(request: Request) -> dict:
+    # Check cookie first
+    session_token = request.cookies.get("session_token")
+    if session_token:
+        session = await db.user_sessions.find_one({"session_token": session_token}, {"_id": 0})
+        if session:
+            expires_at = session["expires_at"]
+            if isinstance(expires_at, str):
+                expires_at = datetime.fromisoformat(expires_at)
+            if expires_at.tzinfo is None:
+                expires_at = expires_at.replace(tzinfo=timezone.utc)
+            if expires_at > datetime.now(timezone.utc):
+                user = await db.users.find_one({"user_id": session["user_id"]}, {"_id": 0})
+                if user:
+                    return user
+
+    # Check Authorization header (JWT)
+    auth_header = request.headers.get("Authorization", "")
+    if auth_header.startswith("Bearer "):
+        token = auth_header.split(" ")[1]
+        # First check if it's a session token
+        session = await db.user_sessions.find_one({"session_token": token}, {"_id": 0})
+        if session:
+            expires_at = session["expires_at"]
+            if isinstance(expires_at, str):
+                expires_at = datetime.fromisoformat(expires_at)
+            if expires_at.tzinfo is None:
+                expires_at = expires_at.replace(tzinfo=timezone.utc)
+            if expires_at > datetime.now(timezone.utc):
+                user = await db.users.find_one({"user_id": session["user_id"]}, {"_id": 0})
+                if user:
+                    return user
+        # Then try JWT
+        try:
+            payload = jwt.decode(token, JWT_SECRET, algorithms=[JWT_ALGORITHM])
+            user = await db.users.find_one({"user_id": payload["user_id"]}, {"_id": 0})
+            if user:
+                return user
+        except jwt.ExpiredSignatureError:
+            pass
+        except jwt.InvalidTokenError:
+            pass
+
+    raise HTTPException(status_code=401, detail="Not authenticated")
+
+async def get_optional_user(request: Request) -> Optional[dict]:
+    try:
+        return await get_current_user(request)
+    except HTTPException:
+        return None
+
+# ============ AUTH ENDPOINTS ============
+
+@api_router.post("/auth/register")
+async def register(data: UserRegister):
+    existing = await db.users.find_one({"email": data.email}, {"_id": 0})
+    if existing:
+        raise HTTPException(status_code=400, detail="Email already registered")
+
+    user_id = f"user_{uuid.uuid4().hex[:12]}"
+    user_doc = {
+        "user_id": user_id,
+        "email": data.email,
+        "name": data.name,
+        "password_hash": hash_password(data.password),
+        "role": data.role,
+        "phone": data.phone,
+        "shareholder_number": data.shareholder_number,
+        "inn": data.inn,
+        "avatar": None,
+        "is_blocked": False,
+        "is_verified": data.role == "client",
+        "created_at": datetime.now(timezone.utc).isoformat()
+    }
+    await db.users.insert_one(user_doc)
+
+    token = create_jwt(user_id, data.role)
+    user_response = {k: v for k, v in user_doc.items() if k not in ("password_hash", "_id")}
+    return {"token": token, "user": user_response}
+
+@api_router.post("/auth/login")
+async def login(data: UserLogin):
+    user = await db.users.find_one({"email": data.email}, {"_id": 0})
+    if not user or not verify_password(data.password, user.get("password_hash", "")):
+        raise HTTPException(status_code=401, detail="Invalid credentials")
+    if user.get("is_blocked"):
+        raise HTTPException(status_code=403, detail="Account blocked")
+
+    token = create_jwt(user["user_id"], user["role"])
+    user_response = {k: v for k, v in user.items() if k != "password_hash"}
+    return {"token": token, "user": user_response}
+
+@api_router.post("/auth/session")
+async def exchange_session(request: Request):
+    body = await request.json()
+    session_id = body.get("session_id")
+    if not session_id:
+        raise HTTPException(status_code=400, detail="session_id required")
+
+    async with httpx.AsyncClient() as client_http:
+        resp = await client_http.get(
+            "https://demobackend.emergentagent.com/auth/v1/env/oauth/session-data",
+            headers={"X-Session-ID": session_id}
+        )
+        if resp.status_code != 200:
+            raise HTTPException(status_code=401, detail="Invalid session")
+        data = resp.json()
+
+    email = data["email"]
+    name = data.get("name", "")
+    picture = data.get("picture", "")
+    session_token = data["session_token"]
+
+    # Find or create user
+    user = await db.users.find_one({"email": email}, {"_id": 0})
+    if not user:
+        user_id = f"user_{uuid.uuid4().hex[:12]}"
+        user = {
+            "user_id": user_id,
+            "email": email,
+            "name": name,
+            "avatar": picture,
+            "role": "client",
+            "phone": None,
+            "shareholder_number": None,
+            "inn": None,
+            "is_blocked": False,
+            "is_verified": True,
+            "created_at": datetime.now(timezone.utc).isoformat()
+        }
+        await db.users.insert_one(user)
+        user = await db.users.find_one({"email": email}, {"_id": 0})
+    else:
+        await db.users.update_one({"email": email}, {"$set": {"name": name, "avatar": picture}})
+        user = await db.users.find_one({"email": email}, {"_id": 0})
+
+    # Store session
+    await db.user_sessions.insert_one({
+        "session_token": session_token,
+        "user_id": user["user_id"],
+        "expires_at": (datetime.now(timezone.utc) + timedelta(days=7)).isoformat(),
+        "created_at": datetime.now(timezone.utc).isoformat()
+    })
+
+    user_response = {k: v for k, v in user.items() if k not in ("password_hash", "_id")}
+    response = JSONResponse(content={"user": user_response, "token": session_token})
+    response.set_cookie(
+        key="session_token",
+        value=session_token,
+        httponly=True,
+        secure=True,
+        samesite="none",
+        path="/",
+        max_age=7 * 24 * 3600
+    )
+    return response
+
+@api_router.get("/auth/me")
+async def get_me(user: dict = Depends(get_current_user)):
+    user_response = {k: v for k, v in user.items() if k not in ("password_hash", "_id")}
+    return user_response
+
+@api_router.post("/auth/logout")
+async def logout(request: Request, response: Response):
+    session_token = request.cookies.get("session_token")
+    if session_token:
+        await db.user_sessions.delete_one({"session_token": session_token})
+    resp = JSONResponse(content={"message": "Logged out"})
+    resp.delete_cookie("session_token", path="/")
+    return resp
+
+# ============ PRODUCTS ENDPOINTS ============
+
+@api_router.get("/products")
+async def list_products(
+    category: Optional[str] = None,
+    search: Optional[str] = None,
+    min_price: Optional[float] = None,
+    max_price: Optional[float] = None,
+    region: Optional[str] = None,
+    page: int = 1,
+    limit: int = 20
+):
+    query = {"status": "active"}
+    if category:
+        query["category"] = category
+    if region:
+        query["region"] = {"$regex": region, "$options": "i"}
+    if search:
+        query["$or"] = [
+            {"title": {"$regex": search, "$options": "i"}},
+            {"description": {"$regex": search, "$options": "i"}},
+            {"tags": {"$regex": search, "$options": "i"}}
+        ]
+    if min_price is not None:
+        query["price"] = query.get("price", {})
+        query["price"]["$gte"] = min_price
+    if max_price is not None:
+        query["price"] = query.get("price", {})
+        query["price"]["$lte"] = max_price
+
+    skip = (page - 1) * limit
+    total = await db.products.count_documents(query)
+    products = await db.products.find(query, {"_id": 0}).sort("created_at", -1).skip(skip).limit(limit).to_list(limit)
+
+    # Attach seller info
+    for p in products:
+        seller = await db.users.find_one({"user_id": p.get("seller_id")}, {"_id": 0, "password_hash": 0})
+        p["seller"] = seller
+
+    return {"products": products, "total": total, "page": page, "pages": (total + limit - 1) // limit}
+
+@api_router.get("/products/categories")
+async def get_categories():
+    categories = [
+        {"id": "food", "name_ru": "Продукты питания", "name_en": "Food & Agriculture", "name_zh": "食品与农业", "icon": "apple"},
+        {"id": "services", "name_ru": "Услуги", "name_en": "Services", "name_zh": "服务", "icon": "wrench"},
+        {"id": "construction", "name_ru": "Строительство", "name_en": "Construction", "name_zh": "建筑", "icon": "building"},
+        {"id": "transport", "name_ru": "Транспорт", "name_en": "Transport", "name_zh": "交通运输", "icon": "truck"},
+        {"id": "electronics", "name_ru": "Электроника", "name_en": "Electronics", "name_zh": "电子产品", "icon": "cpu"},
+        {"id": "clothing", "name_ru": "Одежда", "name_en": "Clothing", "name_zh": "服装", "icon": "shirt"},
+        {"id": "health", "name_ru": "Здоровье", "name_en": "Health & Wellness", "name_zh": "健康与保健", "icon": "heart-pulse"},
+        {"id": "education", "name_ru": "Образование", "name_en": "Education", "name_zh": "教育", "icon": "graduation-cap"},
+        {"id": "realestate", "name_ru": "Недвижимость", "name_en": "Real Estate", "name_zh": "房地产", "icon": "home"},
+        {"id": "other", "name_ru": "Другое", "name_en": "Other", "name_zh": "其他", "icon": "package"}
+    ]
+    return categories
+
+@api_router.get("/products/{product_id}")
+async def get_product(product_id: str):
+    product = await db.products.find_one({"product_id": product_id}, {"_id": 0})
+    if not product:
+        raise HTTPException(status_code=404, detail="Product not found")
+    seller = await db.users.find_one({"user_id": product.get("seller_id")}, {"_id": 0, "password_hash": 0})
+    product["seller"] = seller
+    return product
+
+@api_router.post("/products")
+async def create_product(data: ProductCreate, user: dict = Depends(get_current_user)):
+    if user["role"] not in ("shareholder", "admin"):
+        raise HTTPException(status_code=403, detail="Only shareholders can create products")
+
+    product_id = f"prod_{uuid.uuid4().hex[:12]}"
+    product_doc = {
+        "product_id": product_id,
+        "seller_id": user["user_id"],
+        "title": data.title,
+        "description": data.description,
+        "category": data.category,
+        "price": data.price,
+        "currency": data.currency,
+        "region": data.region,
+        "contacts": data.contacts,
+        "images": data.images,
+        "tags": data.tags,
+        "exchange_available": data.exchange_available,
+        "status": "active",
+        "views": 0,
+        "created_at": datetime.now(timezone.utc).isoformat(),
+        "updated_at": datetime.now(timezone.utc).isoformat()
+    }
+    await db.products.insert_one(product_doc)
+    product_doc.pop("_id", None)
+    return product_doc
+
+@api_router.put("/products/{product_id}")
+async def update_product(product_id: str, data: ProductUpdate, user: dict = Depends(get_current_user)):
+    product = await db.products.find_one({"product_id": product_id}, {"_id": 0})
+    if not product:
+        raise HTTPException(status_code=404, detail="Product not found")
+    if product["seller_id"] != user["user_id"] and user["role"] != "admin":
+        raise HTTPException(status_code=403, detail="Not authorized")
+
+    update_data = {k: v for k, v in data.model_dump().items() if v is not None}
+    update_data["updated_at"] = datetime.now(timezone.utc).isoformat()
+    await db.products.update_one({"product_id": product_id}, {"$set": update_data})
+    updated = await db.products.find_one({"product_id": product_id}, {"_id": 0})
+    return updated
+
+@api_router.delete("/products/{product_id}")
+async def delete_product(product_id: str, user: dict = Depends(get_current_user)):
+    product = await db.products.find_one({"product_id": product_id}, {"_id": 0})
+    if not product:
+        raise HTTPException(status_code=404, detail="Product not found")
+    if product["seller_id"] != user["user_id"] and user["role"] != "admin":
+        raise HTTPException(status_code=403, detail="Not authorized")
+    await db.products.delete_one({"product_id": product_id})
+    return {"message": "Product deleted"}
+
+@api_router.get("/my-products")
+async def get_my_products(user: dict = Depends(get_current_user)):
+    products = await db.products.find({"seller_id": user["user_id"]}, {"_id": 0}).sort("created_at", -1).to_list(1000)
+    return products
+
+# ============ DEALS ENDPOINTS ============
+
+@api_router.post("/deals")
+async def create_deal(data: DealCreate, user: dict = Depends(get_current_user)):
+    product = await db.products.find_one({"product_id": data.product_id}, {"_id": 0})
+    if not product:
+        raise HTTPException(status_code=404, detail="Product not found")
+
+    deal_id = f"deal_{uuid.uuid4().hex[:12]}"
+    amount = product.get("price", 0) or 0
+    commission_total = round(amount * 0.015, 2)
+    commission_coop = round(amount * 0.009, 2)
+    commission_manager = round(amount * 0.006, 2)
+
+    deal_doc = {
+        "deal_id": deal_id,
+        "product_id": data.product_id,
+        "product_title": product.get("title", ""),
+        "buyer_id": user["user_id"],
+        "buyer_name": user.get("name", ""),
+        "seller_id": product["seller_id"],
+        "deal_type": data.deal_type,
+        "status": "pending",
+        "amount": amount,
+        "currency": product.get("currency", "RUB"),
+        "commission_total": commission_total,
+        "commission_coop": commission_coop,
+        "commission_manager": commission_manager,
+        "message": data.message,
+        "offered_product_id": data.offered_product_id,
+        "created_at": datetime.now(timezone.utc).isoformat(),
+        "updated_at": datetime.now(timezone.utc).isoformat()
+    }
+    await db.deals.insert_one(deal_doc)
+    deal_doc.pop("_id", None)
+    return deal_doc
+
+@api_router.get("/deals")
+async def list_deals(user: dict = Depends(get_current_user)):
+    query = {"$or": [{"buyer_id": user["user_id"]}, {"seller_id": user["user_id"]}]}
+    deals = await db.deals.find(query, {"_id": 0}).sort("created_at", -1).to_list(1000)
+    return deals
+
+@api_router.put("/deals/{deal_id}/confirm")
+async def confirm_deal(deal_id: str, user: dict = Depends(get_current_user)):
+    deal = await db.deals.find_one({"deal_id": deal_id}, {"_id": 0})
+    if not deal:
+        raise HTTPException(status_code=404, detail="Deal not found")
+    if deal["seller_id"] != user["user_id"] and user["role"] != "admin":
+        raise HTTPException(status_code=403, detail="Not authorized")
+
+    await db.deals.update_one(
+        {"deal_id": deal_id},
+        {"$set": {"status": "confirmed", "updated_at": datetime.now(timezone.utc).isoformat()}}
+    )
+    return {"message": "Deal confirmed"}
+
+@api_router.put("/deals/{deal_id}/complete")
+async def complete_deal(deal_id: str, user: dict = Depends(get_current_user)):
+    deal = await db.deals.find_one({"deal_id": deal_id}, {"_id": 0})
+    if not deal:
+        raise HTTPException(status_code=404, detail="Deal not found")
+    if deal["seller_id"] != user["user_id"] and deal["buyer_id"] != user["user_id"] and user["role"] != "admin":
+        raise HTTPException(status_code=403, detail="Not authorized")
+
+    await db.deals.update_one(
+        {"deal_id": deal_id},
+        {"$set": {"status": "completed", "updated_at": datetime.now(timezone.utc).isoformat()}}
+    )
+    return {"message": "Deal completed"}
+
+@api_router.put("/deals/{deal_id}/cancel")
+async def cancel_deal(deal_id: str, user: dict = Depends(get_current_user)):
+    deal = await db.deals.find_one({"deal_id": deal_id}, {"_id": 0})
+    if not deal:
+        raise HTTPException(status_code=404, detail="Deal not found")
+    if deal["seller_id"] != user["user_id"] and deal["buyer_id"] != user["user_id"] and user["role"] != "admin":
+        raise HTTPException(status_code=403, detail="Not authorized")
+
+    await db.deals.update_one(
+        {"deal_id": deal_id},
+        {"$set": {"status": "cancelled", "updated_at": datetime.now(timezone.utc).isoformat()}}
+    )
+    return {"message": "Deal cancelled"}
+
+# ============ MEETINGS ENDPOINTS ============
+
+@api_router.post("/meetings")
+async def request_meeting(data: MeetingRequest, user: dict = Depends(get_current_user)):
+    product = await db.products.find_one({"product_id": data.product_id}, {"_id": 0})
+    if not product:
+        raise HTTPException(status_code=404, detail="Product not found")
+
+    meeting_id = f"meet_{uuid.uuid4().hex[:12]}"
+    meeting_doc = {
+        "meeting_id": meeting_id,
+        "product_id": data.product_id,
+        "product_title": product.get("title", ""),
+        "client_id": user["user_id"],
+        "client_name": user.get("name", ""),
+        "seller_id": product["seller_id"],
+        "representative_id": None,
+        "status": "pending",
+        "preferred_date": data.preferred_date,
+        "message": data.message,
+        "result": None,
+        "created_at": datetime.now(timezone.utc).isoformat()
+    }
+    await db.meetings.insert_one(meeting_doc)
+    meeting_doc.pop("_id", None)
+    return meeting_doc
+
+@api_router.get("/meetings")
+async def list_meetings(user: dict = Depends(get_current_user)):
+    if user["role"] in ("admin", "representative"):
+        meetings = await db.meetings.find({}, {"_id": 0}).sort("created_at", -1).to_list(1000)
+    else:
+        query = {"$or": [{"client_id": user["user_id"]}, {"seller_id": user["user_id"]}]}
+        meetings = await db.meetings.find(query, {"_id": 0}).sort("created_at", -1).to_list(1000)
+    return meetings
+
+@api_router.put("/meetings/{meeting_id}/assign")
+async def assign_representative(meeting_id: str, request: Request, user: dict = Depends(get_current_user)):
+    if user["role"] not in ("admin", "representative"):
+        raise HTTPException(status_code=403, detail="Not authorized")
+    body = await request.json()
+    rep_id = body.get("representative_id", user["user_id"])
+    await db.meetings.update_one(
+        {"meeting_id": meeting_id},
+        {"$set": {"representative_id": rep_id, "status": "assigned"}}
+    )
+    return {"message": "Representative assigned"}
+
+@api_router.put("/meetings/{meeting_id}/complete")
+async def complete_meeting(meeting_id: str, request: Request, user: dict = Depends(get_current_user)):
+    body = await request.json()
+    await db.meetings.update_one(
+        {"meeting_id": meeting_id},
+        {"$set": {"status": "completed", "result": body.get("result", "")}}
+    )
+    return {"message": "Meeting completed"}
+
+# ============ FAVORITES ENDPOINTS ============
+
+@api_router.post("/favorites/{product_id}")
+async def add_favorite(product_id: str, user: dict = Depends(get_current_user)):
+    existing = await db.favorites.find_one(
+        {"user_id": user["user_id"], "product_id": product_id}, {"_id": 0}
+    )
+    if existing:
+        return {"message": "Already in favorites"}
+    await db.favorites.insert_one({
+        "user_id": user["user_id"],
+        "product_id": product_id,
+        "created_at": datetime.now(timezone.utc).isoformat()
+    })
+    return {"message": "Added to favorites"}
+
+@api_router.delete("/favorites/{product_id}")
+async def remove_favorite(product_id: str, user: dict = Depends(get_current_user)):
+    await db.favorites.delete_one({"user_id": user["user_id"], "product_id": product_id})
+    return {"message": "Removed from favorites"}
+
+@api_router.get("/favorites")
+async def get_favorites(user: dict = Depends(get_current_user)):
+    favs = await db.favorites.find({"user_id": user["user_id"]}, {"_id": 0}).to_list(1000)
+    product_ids = [f["product_id"] for f in favs]
+    products = await db.products.find({"product_id": {"$in": product_ids}}, {"_id": 0}).to_list(1000)
+    for p in products:
+        seller = await db.users.find_one({"user_id": p.get("seller_id")}, {"_id": 0, "password_hash": 0})
+        p["seller"] = seller
+    return products
+
+# ============ MESSAGES ENDPOINTS ============
+
+@api_router.post("/messages")
+async def send_message(data: MessageCreate, user: dict = Depends(get_current_user)):
+    msg_id = f"msg_{uuid.uuid4().hex[:12]}"
+    msg_doc = {
+        "message_id": msg_id,
+        "sender_id": user["user_id"],
+        "sender_name": user.get("name", ""),
+        "receiver_id": data.receiver_id,
+        "content": data.content,
+        "deal_id": data.deal_id,
+        "read": False,
+        "created_at": datetime.now(timezone.utc).isoformat()
+    }
+    await db.messages.insert_one(msg_doc)
+    msg_doc.pop("_id", None)
+    return msg_doc
+
+@api_router.get("/messages")
+async def get_messages(user: dict = Depends(get_current_user), other_user_id: Optional[str] = None):
+    if other_user_id:
+        query = {"$or": [
+            {"sender_id": user["user_id"], "receiver_id": other_user_id},
+            {"sender_id": other_user_id, "receiver_id": user["user_id"]}
+        ]}
+    else:
+        query = {"$or": [{"sender_id": user["user_id"]}, {"receiver_id": user["user_id"]}]}
+    messages = await db.messages.find(query, {"_id": 0}).sort("created_at", 1).to_list(1000)
+    return messages
+
+@api_router.get("/messages/conversations")
+async def get_conversations(user: dict = Depends(get_current_user)):
+    pipeline = [
+        {"$match": {"$or": [{"sender_id": user["user_id"]}, {"receiver_id": user["user_id"]}]}},
+        {"$sort": {"created_at": -1}},
+        {"$group": {
+            "_id": {"$cond": [{"$eq": ["$sender_id", user["user_id"]]}, "$receiver_id", "$sender_id"]},
+            "last_message": {"$first": "$content"},
+            "last_date": {"$first": "$created_at"},
+            "unread": {"$sum": {"$cond": [{"$and": [{"$eq": ["$receiver_id", user["user_id"]]}, {"$eq": ["$read", False]}]}, 1, 0]}}
+        }}
+    ]
+    convos = await db.messages.aggregate(pipeline).to_list(100)
+    result = []
+    for c in convos:
+        other = await db.users.find_one({"user_id": c["_id"]}, {"_id": 0, "password_hash": 0})
+        result.append({
+            "user": other,
+            "last_message": c["last_message"],
+            "last_date": c["last_date"],
+            "unread": c["unread"]
+        })
+    return result
+
+# ============ ADMIN ENDPOINTS ============
+
+@api_router.get("/admin/users")
+async def admin_list_users(user: dict = Depends(get_current_user), role: Optional[str] = None):
+    if user["role"] != "admin":
+        raise HTTPException(status_code=403, detail="Admin only")
+    query = {}
+    if role:
+        query["role"] = role
+    users = await db.users.find(query, {"_id": 0, "password_hash": 0}).to_list(1000)
+    return users
+
+@api_router.put("/admin/users/{user_id}/block")
+async def admin_block_user(user_id: str, user: dict = Depends(get_current_user)):
+    if user["role"] != "admin":
+        raise HTTPException(status_code=403, detail="Admin only")
+    target = await db.users.find_one({"user_id": user_id}, {"_id": 0})
+    if not target:
+        raise HTTPException(status_code=404, detail="User not found")
+    new_blocked = not target.get("is_blocked", False)
+    await db.users.update_one({"user_id": user_id}, {"$set": {"is_blocked": new_blocked}})
+    return {"message": f"User {'blocked' if new_blocked else 'unblocked'}"}
+
+@api_router.put("/admin/users/{user_id}/verify")
+async def admin_verify_user(user_id: str, user: dict = Depends(get_current_user)):
+    if user["role"] != "admin":
+        raise HTTPException(status_code=403, detail="Admin only")
+    await db.users.update_one({"user_id": user_id}, {"$set": {"is_verified": True}})
+    return {"message": "User verified"}
+
+@api_router.put("/admin/users/{user_id}/role")
+async def admin_change_role(user_id: str, request: Request, user: dict = Depends(get_current_user)):
+    if user["role"] != "admin":
+        raise HTTPException(status_code=403, detail="Admin only")
+    body = await request.json()
+    new_role = body.get("role")
+    if new_role not in ("client", "shareholder", "representative", "admin"):
+        raise HTTPException(status_code=400, detail="Invalid role")
+    await db.users.update_one({"user_id": user_id}, {"$set": {"role": new_role}})
+    return {"message": f"Role changed to {new_role}"}
+
+@api_router.get("/admin/products")
+async def admin_list_products(user: dict = Depends(get_current_user), status: Optional[str] = None):
+    if user["role"] != "admin":
+        raise HTTPException(status_code=403, detail="Admin only")
+    query = {}
+    if status:
+        query["status"] = status
+    products = await db.products.find(query, {"_id": 0}).sort("created_at", -1).to_list(1000)
+    return products
+
+@api_router.put("/admin/products/{product_id}/status")
+async def admin_product_status(product_id: str, request: Request, user: dict = Depends(get_current_user)):
+    if user["role"] != "admin":
+        raise HTTPException(status_code=403, detail="Admin only")
+    body = await request.json()
+    new_status = body.get("status")
+    if new_status not in ("active", "pending", "rejected"):
+        raise HTTPException(status_code=400, detail="Invalid status")
+    await db.products.update_one({"product_id": product_id}, {"$set": {"status": new_status}})
+    return {"message": f"Product status changed to {new_status}"}
+
+@api_router.get("/admin/stats")
+async def admin_stats(user: dict = Depends(get_current_user)):
+    if user["role"] != "admin":
+        raise HTTPException(status_code=403, detail="Admin only")
+
+    total_users = await db.users.count_documents({})
+    total_shareholders = await db.users.count_documents({"role": "shareholder"})
+    total_clients = await db.users.count_documents({"role": "client"})
+    total_products = await db.products.count_documents({})
+    active_products = await db.products.count_documents({"status": "active"})
+    total_deals = await db.deals.count_documents({})
+    completed_deals = await db.deals.count_documents({"status": "completed"})
+    pending_deals = await db.deals.count_documents({"status": "pending"})
+
+    # Calculate total revenue and commission
+    pipeline = [
+        {"$match": {"status": "completed"}},
+        {"$group": {
+            "_id": None,
+            "total_amount": {"$sum": "$amount"},
+            "total_commission": {"$sum": "$commission_total"}
+        }}
+    ]
+    agg = await db.deals.aggregate(pipeline).to_list(1)
+    revenue_data = agg[0] if agg else {"total_amount": 0, "total_commission": 0}
+
+    total_meetings = await db.meetings.count_documents({})
+    pending_meetings = await db.meetings.count_documents({"status": "pending"})
+
+    return {
+        "users": {"total": total_users, "shareholders": total_shareholders, "clients": total_clients},
+        "products": {"total": total_products, "active": active_products},
+        "deals": {"total": total_deals, "completed": completed_deals, "pending": pending_deals},
+        "revenue": {"total_amount": revenue_data.get("total_amount", 0), "total_commission": revenue_data.get("total_commission", 0)},
+        "meetings": {"total": total_meetings, "pending": pending_meetings}
+    }
+
+@api_router.get("/admin/deals")
+async def admin_list_deals(user: dict = Depends(get_current_user)):
+    if user["role"] != "admin":
+        raise HTTPException(status_code=403, detail="Admin only")
+    deals = await db.deals.find({}, {"_id": 0}).sort("created_at", -1).to_list(1000)
+    return deals
+
+# ============ USER PROFILE ============
+
+@api_router.put("/users/profile")
+async def update_profile(data: UserUpdate, user: dict = Depends(get_current_user)):
+    update_data = {k: v for k, v in data.model_dump().items() if v is not None}
+    if update_data:
+        await db.users.update_one({"user_id": user["user_id"]}, {"$set": update_data})
+    updated = await db.users.find_one({"user_id": user["user_id"]}, {"_id": 0, "password_hash": 0})
+    return updated
+
+@api_router.get("/users/{user_id}/public")
+async def get_public_profile(user_id: str):
+    user = await db.users.find_one({"user_id": user_id}, {"_id": 0, "password_hash": 0, "email": 0, "phone": 0, "inn": 0})
+    if not user:
+        raise HTTPException(status_code=404, detail="User not found")
+    products_count = await db.products.count_documents({"seller_id": user_id, "status": "active"})
+    completed_deals = await db.deals.count_documents({"seller_id": user_id, "status": "completed"})
+    user["products_count"] = products_count
+    user["completed_deals"] = completed_deals
+    return user
+
+# ============ STATS FOR SHAREHOLDER ============
+
+@api_router.get("/shareholder/stats")
+async def shareholder_stats(user: dict = Depends(get_current_user)):
+    if user["role"] not in ("shareholder", "admin"):
+        raise HTTPException(status_code=403, detail="Shareholder only")
+
+    products_count = await db.products.count_documents({"seller_id": user["user_id"]})
+    active_products = await db.products.count_documents({"seller_id": user["user_id"], "status": "active"})
+
+    pipeline = [
+        {"$match": {"seller_id": user["user_id"]}},
+        {"$group": {
+            "_id": "$status",
+            "count": {"$sum": 1},
+            "total_amount": {"$sum": "$amount"}
+        }}
+    ]
+    deal_stats = await db.deals.aggregate(pipeline).to_list(10)
+
+    total_views = 0
+    products = await db.products.find({"seller_id": user["user_id"]}, {"_id": 0, "views": 1}).to_list(1000)
+    for p in products:
+        total_views += p.get("views", 0)
+
+    meetings_count = await db.meetings.count_documents({"seller_id": user["user_id"]})
+
+    return {
+        "products": {"total": products_count, "active": active_products},
+        "deals": deal_stats,
+        "total_views": total_views,
+        "meetings": meetings_count
+    }
+
+# Include router
 app.include_router(api_router)
 
 app.add_middleware(
@@ -76,13 +805,6 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
-
-# Configure logging
-logging.basicConfig(
-    level=logging.INFO,
-    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
-)
-logger = logging.getLogger(__name__)
 
 @app.on_event("shutdown")
 async def shutdown_db_client():
