@@ -49,8 +49,11 @@ function AppRouter() {
         <Route path="/products/:productId" element={<ProductDetailPage />} />
         <Route path="/dashboard" element={<ProtectedRoute><DashboardRouter /></ProtectedRoute>} />
         <Route path="/admin" element={<ProtectedRoute><AdminPanel /></ProtectedRoute>} />
+        <Route path="/rules" element={<RulesPage />} />
+        <Route path="/offer" element={<OfferPage />} />
         <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>
+      <CookieConsent />
     </>
   );
 }
