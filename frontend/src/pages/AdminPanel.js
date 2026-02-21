@@ -24,21 +24,43 @@ export default function AdminPanel() {
   const [stats, setStats] = useState(null);
   const [loading, setLoading] = useState(true);
 
+  // Knowledge Base state
+  const [kbDocs, setKbDocs] = useState([]);
+  const [showKbDialog, setShowKbDialog] = useState(false);
+  const [editKb, setEditKb] = useState(null);
+  const [kbForm, setKbForm] = useState({ title: '', category: 'catalogs', description: '', file_url: '', content: '' });
+
+  // News state
+  const [newsItems, setNewsItems] = useState([]);
+  const [showNewsDialog, setShowNewsDialog] = useState(false);
+  const [editNews, setEditNews] = useState(null);
+  const [newsForm, setNewsForm] = useState({ title: '', description: '', image_url: '', audio_url: '', content: '' });
+
+  // Ticker state
+  const [tickerItems, setTickerItems] = useState([]);
+  const [tickerText, setTickerText] = useState('');
+
   const headers = { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' };
 
   const fetchData = useCallback(async () => {
     setLoading(true);
     try {
-      const [uRes, pRes, dRes, sRes] = await Promise.all([
+      const [uRes, pRes, dRes, sRes, kbRes, nRes, tRes] = await Promise.all([
         fetch(`${API}/admin/users`, { headers: { 'Authorization': `Bearer ${token}` } }),
         fetch(`${API}/admin/products`, { headers: { 'Authorization': `Bearer ${token}` } }),
         fetch(`${API}/admin/deals`, { headers: { 'Authorization': `Bearer ${token}` } }),
-        fetch(`${API}/admin/stats`, { headers: { 'Authorization': `Bearer ${token}` } })
+        fetch(`${API}/admin/stats`, { headers: { 'Authorization': `Bearer ${token}` } }),
+        fetch(`${API}/knowledge-base`),
+        fetch(`${API}/news`),
+        fetch(`${API}/ticker`)
       ]);
       setUsers(await uRes.json());
       setProducts(await pRes.json());
       setDeals(await dRes.json());
       setStats(await sRes.json());
+      setKbDocs(await kbRes.json());
+      setNewsItems(await nRes.json());
+      setTickerItems(await tRes.json());
     } catch { toast.error(t('common.error')); }
     setLoading(false);
   }, [token, t]);
