@@ -51,14 +51,15 @@ export default function AdminPanel() {
   const fetchData = useCallback(async () => {
     setLoading(true);
     try {
-      const [uRes, pRes, dRes, sRes, kbRes, nRes, tRes] = await Promise.all([
+      const [uRes, pRes, dRes, sRes, kbRes, nRes, tRes, rRes] = await Promise.all([
         fetch(`${API}/admin/users`, { headers: { 'Authorization': `Bearer ${token}` } }),
         fetch(`${API}/admin/products`, { headers: { 'Authorization': `Bearer ${token}` } }),
         fetch(`${API}/admin/deals`, { headers: { 'Authorization': `Bearer ${token}` } }),
         fetch(`${API}/admin/stats`, { headers: { 'Authorization': `Bearer ${token}` } }),
         fetch(`${API}/knowledge-base`),
         fetch(`${API}/news`),
-        fetch(`${API}/ticker`)
+        fetch(`${API}/ticker`),
+        fetch(`${API}/registry`, { headers: { 'Authorization': `Bearer ${token}` } })
       ]);
       setUsers(await uRes.json());
       setProducts(await pRes.json());
@@ -67,6 +68,8 @@ export default function AdminPanel() {
       setKbDocs(await kbRes.json());
       setNewsItems(await nRes.json());
       setTickerItems(await tRes.json());
+      const regData = await rRes.json();
+      setRegistryEntries(Array.isArray(regData) ? regData : []);
     } catch { toast.error(t('common.error')); }
     setLoading(false);
   }, [token, t]);
