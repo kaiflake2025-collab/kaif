@@ -12,7 +12,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '.
 import { Switch } from '../components/ui/switch';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '../components/ui/dialog';
 import { toast } from 'sonner';
-import { Plus, Package, TrendingUp, Eye, Handshake, Pencil, Trash2, Calendar } from 'lucide-react';
+import { Plus, Package, TrendingUp, Eye, Handshake, Pencil, Trash2, Calendar, ClipboardList } from 'lucide-react';
 
 const API = `${process.env.REACT_APP_BACKEND_URL}/api`;
 
@@ -28,6 +28,7 @@ export default function ShareholderDashboard() {
   const [loading, setLoading] = useState(true);
   const [showAddProduct, setShowAddProduct] = useState(false);
   const [editProduct, setEditProduct] = useState(null);
+  const [registryEntries, setRegistryEntries] = useState([]);
 
   const [productForm, setProductForm] = useState({
     title: '', description: '', category: 'other', price: '',
@@ -40,16 +41,19 @@ export default function ShareholderDashboard() {
   const fetchData = useCallback(async () => {
     setLoading(true);
     try {
-      const [prodRes, dealRes, meetRes, statRes] = await Promise.all([
+      const [prodRes, dealRes, meetRes, statRes, regRes] = await Promise.all([
         fetch(`${API}/my-products`, { headers: { 'Authorization': `Bearer ${token}` } }),
         fetch(`${API}/deals`, { headers: { 'Authorization': `Bearer ${token}` } }),
         fetch(`${API}/meetings`, { headers: { 'Authorization': `Bearer ${token}` } }),
-        fetch(`${API}/shareholder/stats`, { headers: { 'Authorization': `Bearer ${token}` } })
+        fetch(`${API}/shareholder/stats`, { headers: { 'Authorization': `Bearer ${token}` } }),
+        fetch(`${API}/registry`, { headers: { 'Authorization': `Bearer ${token}` } })
       ]);
       setProducts(await prodRes.json());
       setDeals(await dealRes.json());
       setMeetings(await meetRes.json());
       setStats(await statRes.json());
+      const regData = await regRes.json();
+      setRegistryEntries(Array.isArray(regData) ? regData : []);
     } catch { toast.error(t('common.error')); }
     setLoading(false);
   }, [token, t]);
@@ -149,6 +153,9 @@ export default function ShareholderDashboard() {
           <TabsTrigger value="products" data-testid="tab-products">{t('dashboard.products')}</TabsTrigger>
           <TabsTrigger value="deals" data-testid="tab-deals">{t('nav.deals')}</TabsTrigger>
           <TabsTrigger value="meetings" data-testid="tab-meetings">{t('nav.meetings')}</TabsTrigger>
+          <TabsTrigger value="registry" data-testid="tab-registry">
+            <ClipboardList className="h-3.5 w-3.5 mr-1" />Реестр
+          </TabsTrigger>
         </TabsList>
 
         <TabsContent value="products">
@@ -225,6 +232,35 @@ export default function ShareholderDashboard() {
                     <p className="text-xs text-muted-foreground">{m.client_name} · {m.preferred_date || 'TBD'}</p>
                   </div>
                   <Badge className={statusColor(m.status)}>{m.status}</Badge>
+                </div>
+              ))}
+            </div>
+          )}
+        </TabsContent>
+
+        <TabsContent value="registry">
+          {registryEntries.length === 0 ? (
+            <div className="text-center py-16 text-muted-foreground" data-testid="no-registry">
+              <ClipboardList className="h-12 w-12 mx-auto mb-4 opacity-50" />
+              <p>Нет записей в реестре пайщиков</p>
+            </div>
+          ) : (
+            <div className="space-y-3" data-testid="registry-list">
+              {registryEntries.map(entry => (
+                <div key={entry.entry_id} className="bg-card border border-border rounded-lg p-4 flex items-center gap-4 flex-wrap">
+                  <div className="flex-1 min-w-0">
+                    <p className="font-semibold text-sm truncate">{entry.name}</p>
+                    <p className="text-xs text-muted-foreground">
+                      #{entry.shareholder_number} {entry.inn ? `· ИНН: ${entry.inn}` : ''}
+                    </p>
+                  </div>
+                  <div className="text-right">
+                    <p className="font-special font-bold text-primary text-sm">{(entry.pai_amount || 0).toLocaleString()} ₽</p>
+                    <p className="text-xs text-muted-foreground">Вступление: {entry.join_date || '-'}</p>
+                  </div>
+                  <Badge className={entry.status === 'active' ? 'bg-green-500/20 text-green-500' : 'bg-red-500/20 text-red-500'}>
+                    {entry.status === 'active' ? 'Активен' : entry.status === 'suspended' ? 'Приостановлен' : 'Неактивен'}
+                  </Badge>
                 </div>
               ))}
             </div>
