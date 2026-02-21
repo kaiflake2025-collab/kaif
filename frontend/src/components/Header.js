@@ -47,6 +47,35 @@ export default function Header() {
         {/* Desktop Nav */}
         <nav className="hidden md:flex items-center gap-6">
           <NavLink to="/catalog" icon={Package} testId="nav-catalog">{t('nav.catalog')}</NavLink>
+
+          {/* Knowledge Base Dropdown */}
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <button className={`flex items-center gap-1.5 text-sm transition-colors hover:text-primary ${location.pathname.startsWith('/knowledge-base') ? 'text-primary font-semibold' : 'text-muted-foreground'}`} data-testid="nav-kb">
+                <BookOpen className="h-4 w-4" />
+                {lang === 'en' ? 'Knowledge Base' : lang === 'zh' ? '知识库' : 'База знаний'}
+                <ChevronDown className="h-3 w-3" />
+              </button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="center" className="w-56">
+              <DropdownMenuItem onClick={() => navigate('/knowledge-base?tab=catalogs')} data-testid="kb-menu-catalogs">
+                {lang === 'en' ? 'Member Catalogs' : lang === 'zh' ? '会员目录' : 'Каталоги пайщиков'}
+              </DropdownMenuItem>
+              <DropdownMenuItem onClick={() => navigate('/knowledge-base?tab=documents')} data-testid="kb-menu-documents">
+                {lang === 'en' ? 'Cooperative Documents' : lang === 'zh' ? '合作社文件' : 'Документы кооператива'}
+              </DropdownMenuItem>
+              <DropdownMenuItem onClick={() => navigate('/knowledge-base?tab=council_decisions')} data-testid="kb-menu-council">
+                {lang === 'en' ? 'Council Decisions' : lang === 'zh' ? '理事会决议' : 'Решения совета'}
+              </DropdownMenuItem>
+              <DropdownMenuItem onClick={() => navigate('/knowledge-base?tab=meetings')} data-testid="kb-menu-meetings">
+                {lang === 'en' ? 'Meetings' : lang === 'zh' ? '会议' : 'Собрания'}
+              </DropdownMenuItem>
+              <DropdownMenuItem onClick={() => navigate('/knowledge-base?tab=contracts')} data-testid="kb-menu-contracts">
+                {lang === 'en' ? 'Contracts' : lang === 'zh' ? '合同' : 'Договора'}
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
+
           {user && (
             <>
               <NavLink to="/dashboard" icon={LayoutDashboard} testId="nav-dashboard">{t('nav.dashboard')}</NavLink>
