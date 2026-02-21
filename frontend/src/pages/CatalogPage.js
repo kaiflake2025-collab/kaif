@@ -161,8 +161,8 @@ export default function CatalogPage() {
                   {product.images?.[0] ? (
                     <img src={product.images[0]} alt={product.title} className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300" />
                   ) : (
-                    <div className="w-full h-full flex items-center justify-center text-muted-foreground text-4xl">
-                      {categories.find(c => c.id === product.category)?.icon || '📦'}
+                    <div className="w-full h-full flex items-center justify-center text-muted-foreground">
+                      {(() => { const Icon = CATEGORY_ICONS[product.category] || Package; return <Icon className="h-12 w-12" />; })()}
                     </div>
                   )}
                   <button
