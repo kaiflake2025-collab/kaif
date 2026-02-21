@@ -16,6 +16,7 @@ import ClientDashboard from "./pages/ClientDashboard";
 import AdminPanel from "./pages/AdminPanel";
 import RulesPage from "./pages/RulesPage";
 import OfferPage from "./pages/OfferPage";
+import KnowledgeBasePage from "./pages/KnowledgeBasePage";
 
 function ProtectedRoute({ children }) {
   const { user, loading } = useAuth();
