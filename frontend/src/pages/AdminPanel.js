@@ -174,6 +174,32 @@ export default function AdminPanel() {
     } catch { toast.error(t('common.error')); }
   };
 
+  // Registry CRUD
+  const handleSaveReg = async () => {
+    try {
+      const data = { ...regForm, pai_amount: regForm.pai_amount ? parseFloat(regForm.pai_amount) : 0 };
+      const url = editReg ? `${API}/registry/${editReg.entry_id}` : `${API}/registry`;
+      const method = editReg ? 'PUT' : 'POST';
+      const res = await fetch(url, { method, headers, body: JSON.stringify(data) });
+      if (!res.ok) throw new Error();
+      toast.success(t('common.success'));
+      setShowRegDialog(false); setEditReg(null);
+      setRegForm({ name: '', shareholder_number: '', inn: '', phone: '', email: '', pai_amount: '', status: 'active', join_date: '', notes: '' });
+      fetchData();
+    } catch { toast.error(t('common.error')); }
+  };
+  const handleDeleteReg = async (entryId) => {
+    try {
+      await fetch(`${API}/registry/${entryId}`, { method: 'DELETE', headers });
+      toast.success(t('common.success')); fetchData();
+    } catch { toast.error(t('common.error')); }
+  };
+  const openEditReg = (entry) => {
+    setEditReg(entry);
+    setRegForm({ name: entry.name, shareholder_number: entry.shareholder_number, inn: entry.inn || '', phone: entry.phone || '', email: entry.email || '', pai_amount: entry.pai_amount?.toString() || '', status: entry.status || 'active', join_date: entry.join_date || '', notes: entry.notes || '' });
+    setShowRegDialog(true);
+  };
+
   const KB_CATS = {
     catalogs: 'Каталоги пайщиков', documents: 'Документы кооператива',
     council_decisions: 'Решения совета', meetings: 'Собрания', contracts: 'Договора'
