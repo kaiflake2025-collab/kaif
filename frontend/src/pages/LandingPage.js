@@ -65,7 +65,7 @@ export default function LandingPage() {
                 data-testid="hero-join-btn"
                 variant="outline"
                 onClick={() => navigate('/auth?tab=register&role=shareholder')}
-                className="rounded-full px-8 py-6 text-base border-primary/30 hover:border-primary/60 transition-all duration-300"
+                className="rounded-full px-8 py-6 text-base border-foreground/30 text-foreground hover:border-primary hover:text-primary transition-all duration-300"
                 size="lg"
               >
                 {t('landing.hero.join')}
