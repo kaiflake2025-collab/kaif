@@ -208,10 +208,19 @@ export default function AdminPanel() {
       )}
 
       <Tabs defaultValue="users">
-        <TabsList className="mb-6">
+        <TabsList className="mb-6 flex flex-wrap h-auto gap-1">
           <TabsTrigger value="users" data-testid="admin-tab-users">{t('admin.users')}</TabsTrigger>
           <TabsTrigger value="products" data-testid="admin-tab-products">{t('admin.products')}</TabsTrigger>
           <TabsTrigger value="deals" data-testid="admin-tab-deals">{t('admin.deals')}</TabsTrigger>
+          <TabsTrigger value="kb" data-testid="admin-tab-kb">
+            <BookOpen className="h-3.5 w-3.5 mr-1" />База знаний
+          </TabsTrigger>
+          <TabsTrigger value="news" data-testid="admin-tab-news">
+            <Newspaper className="h-3.5 w-3.5 mr-1" />Новости
+          </TabsTrigger>
+          <TabsTrigger value="ticker" data-testid="admin-tab-ticker">
+            <Type className="h-3.5 w-3.5 mr-1" />Бегущая строка
+          </TabsTrigger>
         </TabsList>
 
         <TabsContent value="users">
