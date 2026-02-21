@@ -183,12 +183,30 @@ export default function LandingPage() {
 
       {/* Footer */}
       <footer className="py-12 border-t border-border/50" data-testid="footer">
-        <div className="max-w-7xl mx-auto px-6 md:px-12 flex flex-col md:flex-row items-center justify-between gap-4">
-          <div className="flex items-center gap-2">
-            <span className="font-special text-lg font-bold text-primary">KAIF</span>
-            <span className="text-muted-foreground text-sm">OZERO</span>
+        <div className="max-w-7xl mx-auto px-6 md:px-12 space-y-6">
+          <div className="flex flex-col md:flex-row items-center justify-between gap-4">
+            <div className="flex items-center gap-2">
+              <span className="font-special text-lg font-bold text-primary">KAIF</span>
+              <span className="text-muted-foreground text-sm">OZERO</span>
+            </div>
+            <div className="flex items-center gap-4">
+              <button
+                data-testid="footer-rules-btn"
+                onClick={() => navigate('/rules')}
+                className="text-sm text-muted-foreground hover:text-primary transition-colors underline underline-offset-4"
+              >
+                {lang === 'en' ? 'Platform Rules' : lang === 'zh' ? '平台规则' : 'Правила сервиса'}
+              </button>
+              <button
+                data-testid="footer-offer-btn"
+                onClick={() => navigate('/offer')}
+                className="text-sm text-muted-foreground hover:text-primary transition-colors underline underline-offset-4"
+              >
+                {lang === 'en' ? 'Public Offer' : lang === 'zh' ? '公开要约' : 'Публичная оферта'}
+              </button>
+            </div>
+            <p className="text-sm text-muted-foreground">&copy; 2024 {t('landing.hero.subtitle')}</p>
           </div>
-          <p className="text-sm text-muted-foreground">&copy; 2024 {t('landing.hero.subtitle')}</p>
         </div>
       </footer>
     </div>
