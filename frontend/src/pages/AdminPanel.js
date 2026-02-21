@@ -409,6 +409,36 @@ export default function AdminPanel() {
           </div>
         </TabsContent>
 
+        {/* Registry Tab */}
+        <TabsContent value="registry">
+          <div className="flex items-center justify-between mb-4">
+            <h3 className="font-semibold text-sm">Реестр пайщиков ({registryEntries.length})</h3>
+            <Button size="sm" className="rounded-full" onClick={() => { setEditReg(null); setRegForm({ name: '', shareholder_number: '', inn: '', phone: '', email: '', pai_amount: '', status: 'active', join_date: '', notes: '' }); setShowRegDialog(true); }} data-testid="add-registry-btn">
+              <Plus className="h-4 w-4 mr-1" /> Добавить
+            </Button>
+          </div>
+          <div className="space-y-2" data-testid="admin-registry-list">
+            {registryEntries.map(entry => (
+              <div key={entry.entry_id} className="bg-card border border-border rounded-lg p-4 flex items-center gap-4 flex-wrap">
+                <div className="flex-1 min-w-0">
+                  <p className="font-semibold text-sm truncate">{entry.name}</p>
+                  <p className="text-xs text-muted-foreground">#{entry.shareholder_number} {entry.inn ? `· ИНН: ${entry.inn}` : ''} {entry.phone ? `· ${entry.phone}` : ''}</p>
+                </div>
+                <div className="text-right">
+                  <p className="font-special font-bold text-primary text-sm">{(entry.pai_amount || 0).toLocaleString()} ₽</p>
+                  <p className="text-xs text-muted-foreground">{entry.join_date || '-'}</p>
+                </div>
+                <Badge className={entry.status === 'active' ? 'bg-green-500/20 text-green-500' : 'bg-red-500/20 text-red-500'}>{entry.status === 'active' ? 'Активен' : 'Неактивен'}</Badge>
+                <div className="flex gap-1">
+                  <Button variant="ghost" size="sm" onClick={() => openEditReg(entry)} data-testid={`edit-reg-${entry.entry_id}`}><Pencil className="h-4 w-4" /></Button>
+                  <Button variant="ghost" size="sm" onClick={() => handleDeleteReg(entry.entry_id)} data-testid={`delete-reg-${entry.entry_id}`}><Trash2 className="h-4 w-4 text-destructive" /></Button>
+                </div>
+              </div>
+            ))}
+            {registryEntries.length === 0 && <p className="text-center py-8 text-muted-foreground">Нет записей в реестре</p>}
+          </div>
+        </TabsContent>
+
       </Tabs>
 
       {/* KB Dialog */}
@@ -482,6 +512,70 @@ export default function AdminPanel() {
           <DialogFooter>
             <Button variant="outline" onClick={() => setShowNewsDialog(false)} className="rounded-full">{t('common.cancel')}</Button>
             <Button onClick={handleSaveNews} className="rounded-full" data-testid="save-news-btn">{t('common.save')}</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Registry Dialog */}
+      <Dialog open={showRegDialog} onOpenChange={setShowRegDialog}>
+        <DialogContent className="max-w-lg max-h-[90vh] overflow-y-auto" data-testid="registry-dialog">
+          <DialogHeader>
+            <DialogTitle>{editReg ? 'Редактировать' : 'Добавить'} запись в реестр</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4">
+            <div className="space-y-2">
+              <Label>ФИО</Label>
+              <Input data-testid="reg-name" value={regForm.name} onChange={e => setRegForm({...regForm, name: e.target.value})} className="h-12" />
+            </div>
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label>Номер пайщика</Label>
+                <Input data-testid="reg-number" value={regForm.shareholder_number} onChange={e => setRegForm({...regForm, shareholder_number: e.target.value})} className="h-12" />
+              </div>
+              <div className="space-y-2">
+                <Label>ИНН</Label>
+                <Input data-testid="reg-inn" value={regForm.inn} onChange={e => setRegForm({...regForm, inn: e.target.value})} className="h-12" />
+              </div>
+            </div>
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label>Телефон</Label>
+                <Input data-testid="reg-phone" value={regForm.phone} onChange={e => setRegForm({...regForm, phone: e.target.value})} className="h-12" />
+              </div>
+              <div className="space-y-2">
+                <Label>Email</Label>
+                <Input data-testid="reg-email" value={regForm.email} onChange={e => setRegForm({...regForm, email: e.target.value})} className="h-12" />
+              </div>
+            </div>
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label>Сумма пая (₽)</Label>
+                <Input data-testid="reg-pai" type="number" value={regForm.pai_amount} onChange={e => setRegForm({...regForm, pai_amount: e.target.value})} className="h-12" />
+              </div>
+              <div className="space-y-2">
+                <Label>Дата вступления</Label>
+                <Input data-testid="reg-date" type="date" value={regForm.join_date} onChange={e => setRegForm({...regForm, join_date: e.target.value})} className="h-12" />
+              </div>
+            </div>
+            <div className="space-y-2">
+              <Label>Статус</Label>
+              <Select value={regForm.status} onValueChange={v => setRegForm({...regForm, status: v})}>
+                <SelectTrigger data-testid="reg-status" className="h-12"><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="active">Активен</SelectItem>
+                  <SelectItem value="inactive">Неактивен</SelectItem>
+                  <SelectItem value="suspended">Приостановлен</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="space-y-2">
+              <Label>Примечания</Label>
+              <Textarea data-testid="reg-notes" value={regForm.notes} onChange={e => setRegForm({...regForm, notes: e.target.value})} rows={2} />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setShowRegDialog(false)} className="rounded-full">{t('common.cancel')}</Button>
+            <Button onClick={handleSaveReg} className="rounded-full" data-testid="save-reg-btn">{t('common.save')}</Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
