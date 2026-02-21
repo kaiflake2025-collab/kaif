@@ -6,6 +6,100 @@ import { Button } from '../components/ui/button';
 
 const HERO_BG = "https://customer-assets.emergentagent.com/job_coop-catalog/artifacts/t03m8pqx_%D1%84%D0%BE%D1%82%D0%BE%20%D0%BA%D0%B0%D0%B9%D1%84.jpg";
 const TRUST_IMG = "https://images.pexels.com/photos/7413989/pexels-photo-7413989.jpeg";
+const API = `${process.env.REACT_APP_BACKEND_URL}/api`;
+
+function AudioPlayer({ src }) {
+  const audioRef = useRef(null);
+  const [playing, setPlaying] = useState(false);
+
+  const toggle = () => {
+    if (!audioRef.current) return;
+    if (playing) { audioRef.current.pause(); } else { audioRef.current.play(); }
+    setPlaying(!playing);
+  };
+
+  return (
+    <div className="flex items-center gap-2" onClick={e => e.stopPropagation()}>
+      <audio ref={audioRef} src={src} onEnded={() => setPlaying(false)} />
+      <button onClick={toggle} className="p-2 rounded-full bg-primary/10 hover:bg-primary/20 transition-colors" data-testid="audio-play-btn">
+        {playing ? <Pause className="h-4 w-4 text-primary" /> : <Play className="h-4 w-4 text-primary" />}
+      </button>
+      <Volume2 className="h-3 w-3 text-muted-foreground" />
+    </div>
+  );
+}
+
+function NewsSection({ lang }) {
+  const [news, setNews] = useState([]);
+  const [ticker, setTicker] = useState([]);
+
+  useEffect(() => {
+    const fetchData = async () => {
+      try {
+        const [nRes, tRes] = await Promise.all([
+          fetch(`${API}/news?limit=6`),
+          fetch(`${API}/ticker`)
+        ]);
+        setNews(await nRes.json());
+        setTicker(await tRes.json());
+      } catch {}
+    };
+    fetchData();
+  }, []);
+
+  if (news.length === 0 && ticker.length === 0) return null;
+
+  const sectionTitle = lang === 'en' ? 'Cooperative News' : lang === 'zh' ? '合作社新闻' : 'Новости потребительского кооператива';
+
+  return (
+    <section className="py-20 border-t border-border/50" data-testid="news-section">
+      <div className="max-w-7xl mx-auto px-6 md:px-12">
+        <div className="flex items-center gap-3 mb-10">
+          <Newspaper className="h-6 w-6 text-primary" />
+          <h2 className="text-base md:text-lg font-bold tracking-tight">{sectionTitle}</h2>
+        </div>
+
+        {news.length > 0 && (
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6 mb-10" data-testid="news-grid">
+            {news.map(item => (
+              <div key={item.news_id} className="bg-card border border-border rounded-lg overflow-hidden hover:border-primary/30 transition-all duration-300 group" data-testid={`news-card-${item.news_id}`}>
+                {item.image_url && (
+                  <div className="aspect-video bg-muted overflow-hidden">
+                    <img src={item.image_url} alt={item.title} className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300" />
+                  </div>
+                )}
+                <div className="p-5 space-y-3">
+                  <h3 className="font-semibold text-sm line-clamp-2">{item.title}</h3>
+                  <p className="text-xs text-muted-foreground line-clamp-3">{item.description}</p>
+                  <div className="flex items-center justify-between">
+                    <span className="text-xs text-muted-foreground">{new Date(item.created_at).toLocaleDateString()}</span>
+                    {item.audio_url && <AudioPlayer src={item.audio_url} />}
+                  </div>
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+
+        {/* Scrolling Ticker */}
+        {ticker.length > 0 && (
+          <div className="relative overflow-hidden rounded-lg bg-card border border-border py-3" data-testid="news-ticker">
+            <div className="ticker-wrap">
+              <div className="ticker-content">
+                {ticker.concat(ticker).map((t, i) => (
+                  <span key={i} className="ticker-item text-sm text-muted-foreground mx-8">
+                    <span className="text-primary mr-2">&#x2022;</span>
+                    {t.text}
+                  </span>
+                ))}
+              </div>
+            </div>
+          </div>
+        )}
+      </div>
+    </section>
+  );
+}
 
 const CATEGORY_ICONS = {
   food: Apple, services: Wrench, construction: Building, transport: Truck,
