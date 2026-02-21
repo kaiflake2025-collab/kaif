@@ -99,6 +99,77 @@ export default function AdminPanel() {
     } catch { toast.error(t('common.error')); }
   };
 
+  // KB CRUD
+  const handleSaveKb = async () => {
+    try {
+      const url = editKb ? `${API}/knowledge-base/${editKb.doc_id}` : `${API}/knowledge-base`;
+      const method = editKb ? 'PUT' : 'POST';
+      const res = await fetch(url, { method, headers, body: JSON.stringify(kbForm) });
+      if (!res.ok) throw new Error();
+      toast.success(t('common.success'));
+      setShowKbDialog(false); setEditKb(null);
+      setKbForm({ title: '', category: 'catalogs', description: '', file_url: '', content: '' });
+      fetchData();
+    } catch { toast.error(t('common.error')); }
+  };
+  const handleDeleteKb = async (docId) => {
+    try {
+      await fetch(`${API}/knowledge-base/${docId}`, { method: 'DELETE', headers });
+      toast.success(t('common.success')); fetchData();
+    } catch { toast.error(t('common.error')); }
+  };
+  const openEditKb = (doc) => {
+    setEditKb(doc);
+    setKbForm({ title: doc.title, category: doc.category, description: doc.description || '', file_url: doc.file_url || '', content: doc.content || '' });
+    setShowKbDialog(true);
+  };
+
+  // News CRUD
+  const handleSaveNews = async () => {
+    try {
+      const url = editNews ? `${API}/news/${editNews.news_id}` : `${API}/news`;
+      const method = editNews ? 'PUT' : 'POST';
+      const res = await fetch(url, { method, headers, body: JSON.stringify(newsForm) });
+      if (!res.ok) throw new Error();
+      toast.success(t('common.success'));
+      setShowNewsDialog(false); setEditNews(null);
+      setNewsForm({ title: '', description: '', image_url: '', audio_url: '', content: '' });
+      fetchData();
+    } catch { toast.error(t('common.error')); }
+  };
+  const handleDeleteNews = async (newsId) => {
+    try {
+      await fetch(`${API}/news/${newsId}`, { method: 'DELETE', headers });
+      toast.success(t('common.success')); fetchData();
+    } catch { toast.error(t('common.error')); }
+  };
+  const openEditNews = (item) => {
+    setEditNews(item);
+    setNewsForm({ title: item.title, description: item.description, image_url: item.image_url || '', audio_url: item.audio_url || '', content: item.content || '' });
+    setShowNewsDialog(true);
+  };
+
+  // Ticker CRUD
+  const handleAddTicker = async () => {
+    if (!tickerText.trim()) return;
+    try {
+      await fetch(`${API}/ticker`, { method: 'POST', headers, body: JSON.stringify({ text: tickerText }) });
+      toast.success(t('common.success'));
+      setTickerText(''); fetchData();
+    } catch { toast.error(t('common.error')); }
+  };
+  const handleDeleteTicker = async (tickerId) => {
+    try {
+      await fetch(`${API}/ticker/${tickerId}`, { method: 'DELETE', headers });
+      toast.success(t('common.success')); fetchData();
+    } catch { toast.error(t('common.error')); }
+  };
+
+  const KB_CATS = {
+    catalogs: 'Каталоги пайщиков', documents: 'Документы кооператива',
+    council_decisions: 'Решения совета', meetings: 'Собрания', contracts: 'Договора'
+  };
+
   if (!user || user.role !== 'admin') return <div className="min-h-screen flex items-center justify-center text-muted-foreground">Access Denied</div>;
 
   return (
