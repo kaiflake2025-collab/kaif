@@ -52,6 +52,7 @@ function AppRouter() {
         <Route path="/admin" element={<ProtectedRoute><AdminPanel /></ProtectedRoute>} />
         <Route path="/rules" element={<RulesPage />} />
         <Route path="/offer" element={<OfferPage />} />
+        <Route path="/knowledge-base" element={<KnowledgeBasePage />} />
         <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>
       <CookieConsent />
