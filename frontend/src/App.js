@@ -5,6 +5,7 @@ import { LanguageProvider } from "./contexts/LanguageContext";
 import { ThemeProvider } from "./contexts/ThemeContext";
 import { Toaster } from "./components/ui/sonner";
 import Header from "./components/Header";
+import CookieConsent from "./components/CookieConsent";
 import LandingPage from "./pages/LandingPage";
 import AuthPage from "./pages/AuthPage";
 import AuthCallback from "./pages/AuthCallback";
@@ -13,6 +14,8 @@ import ProductDetailPage from "./pages/ProductDetailPage";
 import ShareholderDashboard from "./pages/ShareholderDashboard";
 import ClientDashboard from "./pages/ClientDashboard";
 import AdminPanel from "./pages/AdminPanel";
+import RulesPage from "./pages/RulesPage";
+import OfferPage from "./pages/OfferPage";
 
 function ProtectedRoute({ children }) {
   const { user, loading } = useAuth();
