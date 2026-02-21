@@ -1071,10 +1071,11 @@ async def get_admin_chat(user: dict = Depends(get_current_user)):
 # Include router
 app.include_router(api_router)
 
+# CORS must be after router inclusion
 app.add_middleware(
     CORSMiddleware,
     allow_credentials=True,
-    allow_origins=os.environ.get('CORS_ORIGINS', '*').split(','),
+    allow_origins=["*"],
     allow_methods=["*"],
     allow_headers=["*"],
 )
