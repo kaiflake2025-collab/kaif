@@ -29,6 +29,14 @@ JWT_EXPIRY_HOURS = 168  # 7 days
 app = FastAPI()
 api_router = APIRouter(prefix="/api")
 
+@app.get("/health")
+async def health_check():
+    return {"status": "healthy"}
+
+@api_router.get("/health")
+async def api_health_check():
+    return {"status": "healthy"}
+
 # Configure logging
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(name)s - %(levelname)s - %(message)s')
 logger = logging.getLogger(__name__)
@@ -1070,6 +1078,14 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+@app.on_event("startup")
+async def startup_db_client():
+    try:
+        await client.admin.command("ping")
+        logger.info("MongoDB connection established successfully")
+    except Exception as e:
+        logger.error(f"MongoDB connection failed: {e}")
 
 @app.on_event("shutdown")
 async def shutdown_db_client():
