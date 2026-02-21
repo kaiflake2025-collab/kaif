@@ -296,7 +296,157 @@ export default function AdminPanel() {
             ))}
           </div>
         </TabsContent>
+
+        {/* Knowledge Base Tab */}
+        <TabsContent value="kb">
+          <div className="flex items-center justify-between mb-4">
+            <h3 className="font-semibold text-sm">Документы базы знаний ({kbDocs.length})</h3>
+            <Button size="sm" className="rounded-full" onClick={() => { setEditKb(null); setKbForm({ title: '', category: 'catalogs', description: '', file_url: '', content: '' }); setShowKbDialog(true); }} data-testid="add-kb-btn">
+              <Plus className="h-4 w-4 mr-1" /> Добавить
+            </Button>
+          </div>
+          <div className="space-y-2" data-testid="admin-kb-list">
+            {kbDocs.map(doc => (
+              <div key={doc.doc_id} className="bg-card border border-border rounded-lg p-4 flex items-center gap-4 flex-wrap">
+                <div className="flex-1 min-w-0">
+                  <p className="font-semibold text-sm truncate">{doc.title}</p>
+                  <p className="text-xs text-muted-foreground">{KB_CATS[doc.category] || doc.category} · {new Date(doc.created_at).toLocaleDateString()}</p>
+                </div>
+                {doc.file_url && <Badge variant="outline" className="text-xs">Файл</Badge>}
+                <div className="flex gap-1">
+                  <Button variant="ghost" size="sm" onClick={() => openEditKb(doc)} data-testid={`edit-kb-${doc.doc_id}`}><Pencil className="h-4 w-4" /></Button>
+                  <Button variant="ghost" size="sm" onClick={() => handleDeleteKb(doc.doc_id)} data-testid={`delete-kb-${doc.doc_id}`}><Trash2 className="h-4 w-4 text-destructive" /></Button>
+                </div>
+              </div>
+            ))}
+            {kbDocs.length === 0 && <p className="text-center py-8 text-muted-foreground">Нет документов</p>}
+          </div>
+        </TabsContent>
+
+        {/* News Tab */}
+        <TabsContent value="news">
+          <div className="flex items-center justify-between mb-4">
+            <h3 className="font-semibold text-sm">Новости ({newsItems.length})</h3>
+            <Button size="sm" className="rounded-full" onClick={() => { setEditNews(null); setNewsForm({ title: '', description: '', image_url: '', audio_url: '', content: '' }); setShowNewsDialog(true); }} data-testid="add-news-btn">
+              <Plus className="h-4 w-4 mr-1" /> Добавить
+            </Button>
+          </div>
+          <div className="space-y-2" data-testid="admin-news-list">
+            {newsItems.map(item => (
+              <div key={item.news_id} className="bg-card border border-border rounded-lg p-4 flex items-center gap-4 flex-wrap">
+                {item.image_url && <div className="h-12 w-16 rounded bg-muted overflow-hidden flex-shrink-0"><img src={item.image_url} alt="" className="w-full h-full object-cover" /></div>}
+                <div className="flex-1 min-w-0">
+                  <p className="font-semibold text-sm truncate">{item.title}</p>
+                  <p className="text-xs text-muted-foreground truncate">{item.description}</p>
+                </div>
+                {item.audio_url && <Badge variant="outline" className="text-xs">Аудио</Badge>}
+                <div className="flex gap-1">
+                  <Button variant="ghost" size="sm" onClick={() => openEditNews(item)} data-testid={`edit-news-${item.news_id}`}><Pencil className="h-4 w-4" /></Button>
+                  <Button variant="ghost" size="sm" onClick={() => handleDeleteNews(item.news_id)} data-testid={`delete-news-${item.news_id}`}><Trash2 className="h-4 w-4 text-destructive" /></Button>
+                </div>
+              </div>
+            ))}
+            {newsItems.length === 0 && <p className="text-center py-8 text-muted-foreground">Нет новостей</p>}
+          </div>
+        </TabsContent>
+
+        {/* Ticker Tab */}
+        <TabsContent value="ticker">
+          <div className="space-y-4">
+            <div className="flex gap-2">
+              <Input data-testid="ticker-input" placeholder="Текст бегущей строки..." value={tickerText} onChange={e => setTickerText(e.target.value)} className="h-12" onKeyDown={e => e.key === 'Enter' && handleAddTicker()} />
+              <Button onClick={handleAddTicker} className="h-12 rounded-full px-6" data-testid="add-ticker-btn">
+                <Plus className="h-4 w-4 mr-1" /> Добавить
+              </Button>
+            </div>
+            <div className="space-y-2" data-testid="admin-ticker-list">
+              {tickerItems.map(t => (
+                <div key={t.ticker_id} className="bg-card border border-border rounded-lg p-4 flex items-center gap-4">
+                  <p className="flex-1 text-sm">{t.text}</p>
+                  <Button variant="ghost" size="sm" onClick={() => handleDeleteTicker(t.ticker_id)} data-testid={`delete-ticker-${t.ticker_id}`}><Trash2 className="h-4 w-4 text-destructive" /></Button>
+                </div>
+              ))}
+              {tickerItems.length === 0 && <p className="text-center py-8 text-muted-foreground">Нет элементов</p>}
+            </div>
+          </div>
+        </TabsContent>
+
       </Tabs>
+
+      {/* KB Dialog */}
+      <Dialog open={showKbDialog} onOpenChange={setShowKbDialog}>
+        <DialogContent className="max-w-lg max-h-[90vh] overflow-y-auto" data-testid="kb-dialog">
+          <DialogHeader>
+            <DialogTitle>{editKb ? 'Редактировать' : 'Добавить'} документ</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4">
+            <div className="space-y-2">
+              <Label>Название</Label>
+              <Input data-testid="kb-title" value={kbForm.title} onChange={e => setKbForm({...kbForm, title: e.target.value})} className="h-12" />
+            </div>
+            <div className="space-y-2">
+              <Label>Категория</Label>
+              <Select value={kbForm.category} onValueChange={v => setKbForm({...kbForm, category: v})}>
+                <SelectTrigger data-testid="kb-category" className="h-12"><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  {Object.entries(KB_CATS).map(([k, v]) => <SelectItem key={k} value={k}>{v}</SelectItem>)}
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="space-y-2">
+              <Label>Описание</Label>
+              <Textarea data-testid="kb-description" value={kbForm.description} onChange={e => setKbForm({...kbForm, description: e.target.value})} rows={2} />
+            </div>
+            <div className="space-y-2">
+              <Label>Ссылка на файл (URL)</Label>
+              <Input data-testid="kb-file-url" value={kbForm.file_url} onChange={e => setKbForm({...kbForm, file_url: e.target.value})} className="h-12" placeholder="https://..." />
+            </div>
+            <div className="space-y-2">
+              <Label>Содержание (текст)</Label>
+              <Textarea data-testid="kb-content" value={kbForm.content} onChange={e => setKbForm({...kbForm, content: e.target.value})} rows={4} />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setShowKbDialog(false)} className="rounded-full">{t('common.cancel')}</Button>
+            <Button onClick={handleSaveKb} className="rounded-full" data-testid="save-kb-btn">{t('common.save')}</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* News Dialog */}
+      <Dialog open={showNewsDialog} onOpenChange={setShowNewsDialog}>
+        <DialogContent className="max-w-lg max-h-[90vh] overflow-y-auto" data-testid="news-dialog">
+          <DialogHeader>
+            <DialogTitle>{editNews ? 'Редактировать' : 'Добавить'} новость</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4">
+            <div className="space-y-2">
+              <Label>Заголовок</Label>
+              <Input data-testid="news-title" value={newsForm.title} onChange={e => setNewsForm({...newsForm, title: e.target.value})} className="h-12" />
+            </div>
+            <div className="space-y-2">
+              <Label>Описание</Label>
+              <Textarea data-testid="news-description" value={newsForm.description} onChange={e => setNewsForm({...newsForm, description: e.target.value})} rows={3} />
+            </div>
+            <div className="space-y-2">
+              <Label>Изображение (URL)</Label>
+              <Input data-testid="news-image" value={newsForm.image_url} onChange={e => setNewsForm({...newsForm, image_url: e.target.value})} className="h-12" placeholder="https://..." />
+            </div>
+            <div className="space-y-2">
+              <Label>Аудио запись (URL)</Label>
+              <Input data-testid="news-audio" value={newsForm.audio_url} onChange={e => setNewsForm({...newsForm, audio_url: e.target.value})} className="h-12" placeholder="https://...mp3" />
+            </div>
+            <div className="space-y-2">
+              <Label>Полный текст</Label>
+              <Textarea data-testid="news-content" value={newsForm.content} onChange={e => setNewsForm({...newsForm, content: e.target.value})} rows={4} />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setShowNewsDialog(false)} className="rounded-full">{t('common.cancel')}</Button>
+            <Button onClick={handleSaveNews} className="rounded-full" data-testid="save-news-btn">{t('common.save')}</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
