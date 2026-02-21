@@ -949,6 +949,117 @@ async def delete_ticker(ticker_id: str, user: dict = Depends(get_current_user)):
     await db.ticker.delete_one({"ticker_id": ticker_id})
     return {"message": "Ticker deleted"}
 
+# ============ SHAREHOLDER REGISTRY ENDPOINTS ============
+
+class RegistryEntryCreate(BaseModel):
+    user_id: Optional[str] = None
+    name: str
+    shareholder_number: str
+    inn: Optional[str] = None
+    phone: Optional[str] = None
+    email: Optional[str] = None
+    pai_amount: Optional[float] = 0
+    status: str = "active"
+    join_date: Optional[str] = None
+    notes: Optional[str] = None
+
+@api_router.get("/registry")
+async def list_registry(user: dict = Depends(get_current_user)):
+    if user["role"] == "admin":
+        entries = await db.registry.find({}, {"_id": 0}).sort("created_at", -1).to_list(10000)
+    elif user["role"] == "shareholder":
+        # Shareholder sees only their own entry
+        entries = await db.registry.find(
+            {"$or": [{"user_id": user["user_id"]}, {"email": user.get("email")}, {"shareholder_number": user.get("shareholder_number", "")}]},
+            {"_id": 0}
+        ).to_list(100)
+    else:
+        raise HTTPException(status_code=403, detail="Not authorized")
+    return entries
+
+@api_router.get("/registry/{entry_id}")
+async def get_registry_entry(entry_id: str, user: dict = Depends(get_current_user)):
+    entry = await db.registry.find_one({"entry_id": entry_id}, {"_id": 0})
+    if not entry:
+        raise HTTPException(status_code=404, detail="Entry not found")
+    if user["role"] != "admin" and entry.get("user_id") != user["user_id"]:
+        raise HTTPException(status_code=403, detail="Not authorized")
+    return entry
+
+@api_router.post("/registry")
+async def create_registry_entry(data: RegistryEntryCreate, user: dict = Depends(get_current_user)):
+    if user["role"] != "admin":
+        raise HTTPException(status_code=403, detail="Admin only")
+    entry_id = f"reg_{uuid.uuid4().hex[:12]}"
+    entry = {
+        "entry_id": entry_id,
+        "user_id": data.user_id,
+        "name": data.name,
+        "shareholder_number": data.shareholder_number,
+        "inn": data.inn,
+        "phone": data.phone,
+        "email": data.email,
+        "pai_amount": data.pai_amount,
+        "status": data.status,
+        "join_date": data.join_date or datetime.now(timezone.utc).strftime("%Y-%m-%d"),
+        "notes": data.notes,
+        "created_at": datetime.now(timezone.utc).isoformat(),
+        "updated_at": datetime.now(timezone.utc).isoformat()
+    }
+    await db.registry.insert_one(entry)
+    entry.pop("_id", None)
+    return entry
+
+@api_router.put("/registry/{entry_id}")
+async def update_registry_entry(entry_id: str, request: Request, user: dict = Depends(get_current_user)):
+    if user["role"] != "admin":
+        raise HTTPException(status_code=403, detail="Admin only")
+    body = await request.json()
+    allowed = ("name", "shareholder_number", "inn", "phone", "email", "pai_amount", "status", "join_date", "notes", "user_id")
+    update_data = {k: v for k, v in body.items() if k in allowed}
+    update_data["updated_at"] = datetime.now(timezone.utc).isoformat()
+    await db.registry.update_one({"entry_id": entry_id}, {"$set": update_data})
+    updated = await db.registry.find_one({"entry_id": entry_id}, {"_id": 0})
+    return updated
+
+@api_router.delete("/registry/{entry_id}")
+async def delete_registry_entry(entry_id: str, user: dict = Depends(get_current_user)):
+    if user["role"] != "admin":
+        raise HTTPException(status_code=403, detail="Admin only")
+    await db.registry.delete_one({"entry_id": entry_id})
+    return {"message": "Entry deleted"}
+
+# ============ ADMIN CHAT ENDPOINTS ============
+
+@api_router.post("/admin-chat")
+async def send_admin_chat(request: Request, user: dict = Depends(get_current_user)):
+    body = await request.json()
+    msg_id = f"achat_{uuid.uuid4().hex[:12]}"
+    msg = {
+        "message_id": msg_id,
+        "sender_id": user["user_id"],
+        "sender_name": user.get("name", ""),
+        "sender_role": user["role"],
+        "content": body.get("content", ""),
+        "read": False,
+        "created_at": datetime.now(timezone.utc).isoformat()
+    }
+    await db.admin_chat.insert_one(msg)
+    msg.pop("_id", None)
+    return msg
+
+@api_router.get("/admin-chat")
+async def get_admin_chat(user: dict = Depends(get_current_user)):
+    if user["role"] == "admin":
+        messages = await db.admin_chat.find({}, {"_id": 0}).sort("created_at", -1).limit(100).to_list(100)
+    else:
+        messages = await db.admin_chat.find(
+            {"$or": [{"sender_id": user["user_id"]}, {"sender_role": "admin"}]},
+            {"_id": 0}
+        ).sort("created_at", -1).limit(50).to_list(50)
+    messages.reverse()
+    return messages
+
 # Include router
 app.include_router(api_router)
 
