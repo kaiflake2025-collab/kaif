@@ -5,8 +5,6 @@ import { Search, ArrowRight, ShieldCheck, Users, TrendingUp, Handshake, Apple, W
 import { Button } from '../components/ui/button';
 
 const HERO_BG = "https://images.unsplash.com/photo-1738965190071-a6569b1fab55?crop=entropy&cs=srgb&fm=jpg&ixid=M3w3NTY2OTV8MHwxfHNlYXJjaHwzfHxteXN0ZXJpb3VzJTIwbGFrZSUyMG5hdHVyZSUyMGZvZyUyMHN1bnJpc2V8ZW58MHx8fHwxNzcxNjU0NDAyfDA&ixlib=rb-4.1.0&q=85";
-const CATEGORY_FOOD = "https://images.pexels.com/photos/5503186/pexels-photo-5503186.jpeg";
-const CATEGORY_SERVICES = "https://images.pexels.com/photos/18435276/pexels-photo-18435276.jpeg";
 const TRUST_IMG = "https://images.pexels.com/photos/7413989/pexels-photo-7413989.jpeg";
 
 const CATEGORY_ICONS = {
