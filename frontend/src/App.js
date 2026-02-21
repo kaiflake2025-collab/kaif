@@ -18,6 +18,7 @@ import AdminPanel from "./pages/AdminPanel";
 import RulesPage from "./pages/RulesPage";
 import OfferPage from "./pages/OfferPage";
 import KnowledgeBasePage from "./pages/KnowledgeBasePage";
+import GuidePage from "./pages/GuidePage";
 
 function ProtectedRoute({ children }) {
   const { user, loading } = useAuth();
@@ -54,6 +55,7 @@ function AppRouter() {
         <Route path="/rules" element={<RulesPage />} />
         <Route path="/offer" element={<OfferPage />} />
         <Route path="/knowledge-base" element={<KnowledgeBasePage />} />
+        <Route path="/guide" element={<GuidePage />} />
         <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>
       <CookieConsent />
