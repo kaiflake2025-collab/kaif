@@ -6,7 +6,7 @@ import { useTheme } from '../contexts/ThemeContext';
 import { Button } from '../components/ui/button';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from '../components/ui/dropdown-menu';
 import { Sheet, SheetContent, SheetTrigger } from '../components/ui/sheet';
-import { Sun, Moon, Globe, User, LogOut, Menu, LayoutDashboard, ShieldCheck, Heart, Package, MessageSquare } from 'lucide-react';
+import { Sun, Moon, Globe, User, LogOut, Menu, LayoutDashboard, ShieldCheck, Heart, Package, MessageSquare, BookOpen, ChevronDown } from 'lucide-react';
 
 export default function Header() {
   const { user, logout } = useAuth();
