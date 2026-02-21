@@ -157,6 +157,9 @@ export default function Header() {
             <SheetContent side="right" className="w-72">
               <nav className="flex flex-col gap-4 mt-8">
                 <NavLink to="/catalog" icon={Package} testId="mobile-nav-catalog">{t('nav.catalog')}</NavLink>
+                <NavLink to="/knowledge-base" icon={BookOpen} testId="mobile-nav-kb">
+                  {lang === 'en' ? 'Knowledge Base' : lang === 'zh' ? '知识库' : 'База знаний'}
+                </NavLink>
                 {user && (
                   <>
                     <NavLink to="/dashboard" icon={LayoutDashboard} testId="mobile-nav-dashboard">{t('nav.dashboard')}</NavLink>
