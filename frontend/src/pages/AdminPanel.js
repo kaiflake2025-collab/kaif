@@ -40,6 +40,12 @@ export default function AdminPanel() {
   const [tickerItems, setTickerItems] = useState([]);
   const [tickerText, setTickerText] = useState('');
 
+  // Registry state
+  const [registryEntries, setRegistryEntries] = useState([]);
+  const [showRegDialog, setShowRegDialog] = useState(false);
+  const [editReg, setEditReg] = useState(null);
+  const [regForm, setRegForm] = useState({ name: '', shareholder_number: '', inn: '', phone: '', email: '', pai_amount: '', status: 'active', join_date: '', notes: '' });
+
   const headers = { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' };
 
   const fetchData = useCallback(async () => {
