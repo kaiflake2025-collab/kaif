@@ -6,7 +6,13 @@ import { Input } from '../components/ui/input';
 import { Button } from '../components/ui/button';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../components/ui/select';
 import { Badge } from '../components/ui/badge';
-import { Search, Heart, Eye, ArrowUpDown, Grid3X3, List } from 'lucide-react';
+import { Search, Heart, Eye, ArrowUpDown, Grid3X3, List, Apple, Wrench, Building, Truck, Cpu, Shirt, HeartPulse, GraduationCap, Home, Package } from 'lucide-react';
+
+const CATEGORY_ICONS = {
+  food: Apple, services: Wrench, construction: Building, transport: Truck,
+  electronics: Cpu, clothing: Shirt, health: HeartPulse, education: GraduationCap,
+  realestate: Home, other: Package
+};
 import { toast } from 'sonner';
 
 const API = `${process.env.REACT_APP_BACKEND_URL}/api`;
