@@ -300,7 +300,7 @@ export default function LandingPage() {
                 {lang === 'en' ? 'Public Offer' : lang === 'zh' ? '公开要约' : 'Публичная оферта'}
               </button>
             </div>
-            <p className="text-sm text-muted-foreground">&copy; 2024 {t('landing.hero.subtitle')}</p>
+            <p className="text-xs text-muted-foreground text-center md:text-right max-w-xl">&copy; 2023-2026 Потребительский кооператив КАЙФ ОЗЕРО / ОГРН:1239100014955 ИНН:9110032876. Все права сохранены и защищены, копирование и распространение информации разрешается только с письменного разрешения.</p>
           </div>
         </div>
       </footer>
