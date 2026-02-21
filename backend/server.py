@@ -795,6 +795,160 @@ async def shareholder_stats(user: dict = Depends(get_current_user)):
         "meetings": meetings_count
     }
 
+# ============ KNOWLEDGE BASE ENDPOINTS ============
+
+KB_CATEGORIES = ["catalogs", "documents", "council_decisions", "meetings", "contracts"]
+
+class KBDocCreate(BaseModel):
+    title: str
+    category: str
+    description: Optional[str] = None
+    file_url: Optional[str] = None
+    content: Optional[str] = None
+
+@api_router.get("/knowledge-base")
+async def list_kb_docs(category: Optional[str] = None):
+    query = {}
+    if category and category in KB_CATEGORIES:
+        query["category"] = category
+    docs = await db.knowledge_base.find(query, {"_id": 0}).sort("created_at", -1).to_list(1000)
+    return docs
+
+@api_router.get("/knowledge-base/{doc_id}")
+async def get_kb_doc(doc_id: str):
+    doc = await db.knowledge_base.find_one({"doc_id": doc_id}, {"_id": 0})
+    if not doc:
+        raise HTTPException(status_code=404, detail="Document not found")
+    return doc
+
+@api_router.post("/knowledge-base")
+async def create_kb_doc(data: KBDocCreate, user: dict = Depends(get_current_user)):
+    if user["role"] != "admin":
+        raise HTTPException(status_code=403, detail="Admin only")
+    if data.category not in KB_CATEGORIES:
+        raise HTTPException(status_code=400, detail="Invalid category")
+    doc_id = f"kb_{uuid.uuid4().hex[:12]}"
+    doc = {
+        "doc_id": doc_id,
+        "title": data.title,
+        "category": data.category,
+        "description": data.description,
+        "file_url": data.file_url,
+        "content": data.content,
+        "created_by": user["user_id"],
+        "created_at": datetime.now(timezone.utc).isoformat()
+    }
+    await db.knowledge_base.insert_one(doc)
+    doc.pop("_id", None)
+    return doc
+
+@api_router.put("/knowledge-base/{doc_id}")
+async def update_kb_doc(doc_id: str, request: Request, user: dict = Depends(get_current_user)):
+    if user["role"] != "admin":
+        raise HTTPException(status_code=403, detail="Admin only")
+    body = await request.json()
+    update_data = {k: v for k, v in body.items() if k in ("title", "description", "file_url", "content", "category")}
+    if update_data:
+        await db.knowledge_base.update_one({"doc_id": doc_id}, {"$set": update_data})
+    updated = await db.knowledge_base.find_one({"doc_id": doc_id}, {"_id": 0})
+    return updated
+
+@api_router.delete("/knowledge-base/{doc_id}")
+async def delete_kb_doc(doc_id: str, user: dict = Depends(get_current_user)):
+    if user["role"] != "admin":
+        raise HTTPException(status_code=403, detail="Admin only")
+    await db.knowledge_base.delete_one({"doc_id": doc_id})
+    return {"message": "Document deleted"}
+
+# ============ NEWS ENDPOINTS ============
+
+class NewsCreate(BaseModel):
+    title: str
+    description: str
+    image_url: Optional[str] = None
+    audio_url: Optional[str] = None
+    content: Optional[str] = None
+
+@api_router.get("/news")
+async def list_news(limit: int = 20):
+    news = await db.news.find({}, {"_id": 0}).sort("created_at", -1).limit(limit).to_list(limit)
+    return news
+
+@api_router.get("/news/{news_id}")
+async def get_news_item(news_id: str):
+    item = await db.news.find_one({"news_id": news_id}, {"_id": 0})
+    if not item:
+        raise HTTPException(status_code=404, detail="News not found")
+    return item
+
+@api_router.post("/news")
+async def create_news(data: NewsCreate, user: dict = Depends(get_current_user)):
+    if user["role"] != "admin":
+        raise HTTPException(status_code=403, detail="Admin only")
+    news_id = f"news_{uuid.uuid4().hex[:12]}"
+    item = {
+        "news_id": news_id,
+        "title": data.title,
+        "description": data.description,
+        "image_url": data.image_url,
+        "audio_url": data.audio_url,
+        "content": data.content,
+        "created_by": user["user_id"],
+        "created_at": datetime.now(timezone.utc).isoformat()
+    }
+    await db.news.insert_one(item)
+    item.pop("_id", None)
+    return item
+
+@api_router.put("/news/{news_id}")
+async def update_news(news_id: str, request: Request, user: dict = Depends(get_current_user)):
+    if user["role"] != "admin":
+        raise HTTPException(status_code=403, detail="Admin only")
+    body = await request.json()
+    update_data = {k: v for k, v in body.items() if k in ("title", "description", "image_url", "audio_url", "content")}
+    if update_data:
+        await db.news.update_one({"news_id": news_id}, {"$set": update_data})
+    updated = await db.news.find_one({"news_id": news_id}, {"_id": 0})
+    return updated
+
+@api_router.delete("/news/{news_id}")
+async def delete_news(news_id: str, user: dict = Depends(get_current_user)):
+    if user["role"] != "admin":
+        raise HTTPException(status_code=403, detail="Admin only")
+    await db.news.delete_one({"news_id": news_id})
+    return {"message": "News deleted"}
+
+# ============ TICKER ENDPOINTS ============
+
+class TickerCreate(BaseModel):
+    text: str
+
+@api_router.get("/ticker")
+async def get_ticker():
+    items = await db.ticker.find({}, {"_id": 0}).sort("created_at", -1).to_list(50)
+    return items
+
+@api_router.post("/ticker")
+async def create_ticker(data: TickerCreate, user: dict = Depends(get_current_user)):
+    if user["role"] != "admin":
+        raise HTTPException(status_code=403, detail="Admin only")
+    ticker_id = f"tick_{uuid.uuid4().hex[:12]}"
+    item = {
+        "ticker_id": ticker_id,
+        "text": data.text,
+        "created_at": datetime.now(timezone.utc).isoformat()
+    }
+    await db.ticker.insert_one(item)
+    item.pop("_id", None)
+    return item
+
+@api_router.delete("/ticker/{ticker_id}")
+async def delete_ticker(ticker_id: str, user: dict = Depends(get_current_user)):
+    if user["role"] != "admin":
+        raise HTTPException(status_code=403, detail="Admin only")
+    await db.ticker.delete_one({"ticker_id": ticker_id})
+    return {"message": "Ticker deleted"}
+
 # Include router
 app.include_router(api_router)
 
