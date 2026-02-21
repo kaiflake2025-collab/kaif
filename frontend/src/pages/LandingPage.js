@@ -94,17 +94,19 @@ export default function LandingPage() {
         <h2 className="text-base md:text-lg font-bold mb-10 tracking-tight">{t('landing.categories')}</h2>
         <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-4 md:gap-6">
           {[
-            { id: 'food', icon: '🍎', img: CATEGORY_FOOD },
-            { id: 'services', icon: '🔧', img: CATEGORY_SERVICES },
-            { id: 'construction', icon: '🏗️' },
-            { id: 'transport', icon: '🚛' },
-            { id: 'electronics', icon: '💻' },
-            { id: 'health', icon: '❤️' },
-            { id: 'education', icon: '📚' },
-            { id: 'realestate', icon: '🏠' },
-            { id: 'clothing', icon: '👔' },
-            { id: 'other', icon: '📦' },
-          ].map((cat) => (
+            { id: 'food', img: CATEGORY_FOOD },
+            { id: 'services', img: CATEGORY_SERVICES },
+            { id: 'construction' },
+            { id: 'transport' },
+            { id: 'electronics' },
+            { id: 'health' },
+            { id: 'education' },
+            { id: 'realestate' },
+            { id: 'clothing' },
+            { id: 'other' },
+          ].map((cat) => {
+            const Icon = CATEGORY_ICONS[cat.id] || Package;
+            return (
             <button
               key={cat.id}
               data-testid={`category-${cat.id}`}
@@ -117,11 +119,11 @@ export default function LandingPage() {
                 </div>
               )}
               <div className="relative z-10">
-                <span className="text-2xl block mb-2">{cat.icon}</span>
+                <Icon className="h-6 w-6 text-primary mb-2" />
                 <span className="text-sm font-medium">{cat.id}</span>
               </div>
             </button>
-          ))}
+          )})}
         </div>
       </section>
 
