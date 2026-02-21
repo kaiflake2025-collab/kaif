@@ -1,0 +1,162 @@
+{
+  "identity": {
+    "persona": "E1 - The Anti-AI Designer",
+    "mission": "Create a 'Bioluminescent Lake' aesthetic that bridges natural serenity with financial trust.",
+    "core_principles": [
+      "Fusion over Imitation: Nature x Fintech.",
+      "Emotion First: Calm trust in the dark, refreshing clarity in the light.",
+      "Content is King: Data is beautiful, not just functional.",
+      "Negative Space: Luxurious padding (p-8 is the new p-4)."
+    ]
+  },
+  "theme_strategy": {
+    "name": "Bioluminescent Lake",
+    "mode_behavior": "Dark mode default (The Deep Lake). Light mode toggle (The Morning Mist).",
+    "colors": {
+      "dark": {
+        "background": "#020617",
+        "surface": "#0f172a",
+        "surface_highlight": "#1e293b",
+        "primary": "#2dd4bf",
+        "primary_foreground": "#020617",
+        "secondary": "#fbbf24",
+        "accent": "#0ea5e9",
+        "border": "rgba(148, 163, 184, 0.1)"
+      },
+      "light": {
+        "background": "#f8fafc",
+        "surface": "#ffffff",
+        "surface_highlight": "#f1f5f9",
+        "primary": "#0f766e",
+        "primary_foreground": "#ffffff",
+        "secondary": "#d97706",
+        "accent": "#0284c7",
+        "border": "#e2e8f0"
+      }
+    }
+  },
+  "typography": {
+    "fonts": {
+      "heading": {
+        "family": "Manrope",
+        "fallback": "sans-serif",
+        "weights": ["600", "700", "800"],
+        "usage": "All headings (h1-h6). Use tight tracking (-0.02em)."
+      },
+      "body": {
+        "family": "Inter",
+        "fallback": "sans-serif",
+        "weights": ["400", "500"],
+        "usage": "Body text, inputs, data tables. Use relaxed leading."
+      },
+      "special": {
+        "family": "Unbounded",
+        "fallback": "display",
+        "weights": ["400", "700"],
+        "usage": "Hero numbers, Deal Commission percentages, 'KAIF' branding elements."
+      }
+    },
+    "rules": [
+      "Never use Inter for headings.",
+      "Headings > 32px must use tracking-tight.",
+      "Overlines must be uppercase and tracking-widest."
+    ]
+  },
+  "ui_enhancers": {
+    "glassmorphism": {
+      "usage": "Use for sticky headers, modal overlays, and floating action bars.",
+      "classes": "backdrop-blur-xl bg-background/70 border-b border-white/5"
+    },
+    "borders": {
+      "style": "1px solid",
+      "color": "border-white/10 (dark) or border-slate-200 (light)",
+      "radius": "rounded-lg"
+    },
+    "shadows": {
+      "card": "shadow-[0_8px_30px_rgb(0,0,0,0.12)]",
+      "glow": "drop-shadow-[0_0_15px_rgba(45,212,191,0.3)]"
+    }
+  },
+  "layout_strategies": {
+    "dashboard": {
+      "grid": "Bento Grid Mode B (High Density)",
+      "gap": "gap-4 md:gap-6",
+      "rule": "Every pixel utilized. No jagged bottoms. Use col-span logic for hierarchy."
+    },
+    "marketing": {
+      "grid": "Tetris Grid Mode A (Asymmetry)",
+      "gap": "gap-8 md:gap-12",
+      "rule": "Never fill 100% of the grid. Leave breathing room."
+    }
+  },
+  "components": {
+    "buttons": {
+      "primary": "bg-primary text-primary-foreground hover:brightness-110 shadow-[0_0_20px_rgba(45,212,191,0.3)] rounded-full px-8",
+      "secondary": "bg-secondary text-secondary-foreground hover:bg-secondary/90 rounded-full",
+      "outline": "border border-input bg-background hover:bg-accent hover:text-accent-foreground rounded-full"
+    },
+    "cards": {
+      "style": "bg-card text-card-foreground border border-border shadow-sm hover:shadow-md transition-all duration-300",
+      "hover_effect": "hover:-translate-y-1 hover:border-primary/50"
+    },
+    "inputs": {
+      "style": "bg-background border-input focus:ring-2 focus:ring-primary/50 rounded-md h-12"
+    }
+  },
+  "images": {
+    "hero_background": {
+      "url": "https://images.unsplash.com/photo-1738965190071-a6569b1fab55?crop=entropy&cs=srgb&fm=jpg&ixid=M3w3NTY2OTV8MHwxfHNlYXJjaHwzfHxteXN0ZXJpb3VzJTIwbGFrZSUyMG5hdHVyZSUyMGZvZyUyMHN1bnJpc2V8ZW58MHx8fHwxNzcxNjU0NDAyfDA&ixlib=rb-4.1.0&q=85",
+      "alt": "Foggy sunrise over a mysterious lake",
+      "usage": "Landing page hero background with heavy overlay"
+    },
+    "category_organic": {
+      "url": "https://images.pexels.com/photos/5503186/pexels-photo-5503186.jpeg",
+      "alt": "Fresh organic vegetables in wooden box",
+      "usage": "Food/Agriculture category card"
+    },
+    "category_services": {
+      "url": "https://images.pexels.com/photos/18435276/pexels-photo-18435276.jpeg",
+      "alt": "Modern wooden architecture",
+      "usage": "Construction/Services category card"
+    },
+    "trust_handshake": {
+      "url": "https://images.pexels.com/photos/7413989/pexels-photo-7413989.jpeg",
+      "alt": "Diverse business handshake",
+      "usage": "About section or Deal Confirmation page"
+    }
+  },
+  "motion": {
+    "library": "framer-motion",
+    "defaults": {
+      "duration": 0.3,
+      "ease": "easeInOut"
+    },
+    "interactions": {
+      "hover": "scale(1.02)",
+      "tap": "scale(0.98)"
+    }
+  },
+  "universal_guidelines": {
+    "do_not": [
+      "Do NOT use gradients for text.",
+      "Do NOT use emoji icons (use Lucide/Phosphor).",
+      "Do NOT center align main app container.",
+      "Do NOT use default 'blue' for links (use Teal or Amber)."
+    ],
+    "must_do": [
+      "MUST use data-testid on all interactive elements.",
+      "MUST use sonner for toasts.",
+      "MUST use 2-3x more padding than standard.",
+      "MUST support Russian Cyrillic expansion in layouts."
+    ]
+  },
+  "instructions_to_main_agent": [
+    "Install 'lucide-react' and 'framer-motion' if not present.",
+    "Configure tailwind.config.js with the provided color palette.",
+    "Import fonts 'Manrope' and 'Unbounded' in index.css.",
+    "Implement the 'Deal System' with a visible 1.5% commission calculation in the UI.",
+    "Ensure the Language Switcher is prominent and accessible.",
+    "Use the provided image URLs for the landing page and categories.",
+    "Create a 'design_system' folder to store reusable pattern components."
+  ]
+}
