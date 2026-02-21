@@ -154,6 +154,9 @@ export default function LandingPage() {
         </div>
       </section>
 
+      {/* News Section */}
+      <NewsSection lang={lang} />
+
       {/* Trust Section */}
       <section className="py-20 border-t border-border/50" data-testid="trust-section">
         <div className="max-w-7xl mx-auto px-6 md:px-12 grid md:grid-cols-2 gap-12 items-center">
