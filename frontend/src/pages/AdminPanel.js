@@ -256,6 +256,9 @@ export default function AdminPanel() {
           <TabsTrigger value="ticker" data-testid="admin-tab-ticker">
             <Type className="h-3.5 w-3.5 mr-1" />Бегущая строка
           </TabsTrigger>
+          <TabsTrigger value="registry" data-testid="admin-tab-registry">
+            <ClipboardList className="h-3.5 w-3.5 mr-1" />Реестр пайщиков
+          </TabsTrigger>
         </TabsList>
 
         <TabsContent value="users">
