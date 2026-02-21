@@ -107,8 +107,8 @@ export default function LandingPage() {
         <h2 className="text-base md:text-lg font-bold mb-10 tracking-tight">{t('landing.categories')}</h2>
         <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-4 md:gap-6">
           {[
-            { id: 'food', img: CATEGORY_FOOD },
-            { id: 'services', img: CATEGORY_SERVICES },
+            { id: 'food' },
+            { id: 'services' },
             { id: 'construction' },
             { id: 'transport' },
             { id: 'electronics' },
@@ -124,17 +124,10 @@ export default function LandingPage() {
               key={cat.id}
               data-testid={`category-${cat.id}`}
               onClick={() => navigate(`/catalog?category=${cat.id}`)}
-              className="group relative rounded-lg overflow-hidden bg-card border border-border hover:border-primary/50 transition-all duration-300 hover:-translate-y-1 p-6 text-left"
+              className="group rounded-lg bg-card border border-border hover:border-primary/50 transition-all duration-300 hover:-translate-y-1 p-6 text-left"
             >
-              {cat.img && (
-                <div className="absolute inset-0 opacity-20 group-hover:opacity-30 transition-opacity">
-                  <img src={cat.img} alt="" className="w-full h-full object-cover" />
-                </div>
-              )}
-              <div className="relative z-10">
-                <Icon className="h-6 w-6 text-primary mb-2" />
-                <span className="text-sm font-medium">{CATEGORY_NAMES[cat.id]?.[lang] || cat.id}</span>
-              </div>
+              <Icon className="h-6 w-6 text-primary mb-2" />
+              <span className="text-sm font-medium">{CATEGORY_NAMES[cat.id]?.[lang] || cat.id}</span>
             </button>
           )})}
         </div>
