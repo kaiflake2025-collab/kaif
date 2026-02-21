@@ -22,7 +22,7 @@ mongo_url = os.environ['MONGO_URL']
 client = AsyncIOMotorClient(mongo_url)
 db = client[os.environ['DB_NAME']]
 
-JWT_SECRET = os.environ.get('JWT_SECRET', 'kaif-ozero-secret-key-2024')
+JWT_SECRET = os.environ.get('JWT_SECRET', 'kaif-ozero-secret-key-2024-secure-production')
 JWT_ALGORITHM = "HS256"
 JWT_EXPIRY_HOURS = 168  # 7 days
 
