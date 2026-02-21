@@ -5,7 +5,7 @@ import json
 from datetime import datetime
 
 class CoopCatalogTester:
-    def __init__(self, base_url="https://coop-catalog.preview.emergentagent.com"):
+    def __init__(self, base_url="https://kaif-ozero-coop.preview.emergentagent.com"):
         self.base_url = f"{base_url}/api"
         self.admin_token = None
         self.tests_run = 0
