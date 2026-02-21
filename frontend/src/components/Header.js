@@ -36,7 +36,7 @@ export default function Header() {
   );
 
   return (
-    <header className="sticky top-0 z-50 glass bg-background/80 border-b border-border/50" data-testid="main-header">
+    <header className="sticky top-0 z-50 glass bg-background/90 border-b border-border/50" data-testid="main-header">
       <div className="max-w-7xl mx-auto px-6 md:px-12 h-16 flex items-center justify-between">
         {/* Logo */}
         <Link to="/" className="flex items-center gap-2" data-testid="logo-link">
