@@ -325,10 +325,12 @@ async def list_products(
     total = await db.products.count_documents(query)
     products = await db.products.find(query, {"_id": 0}).sort("created_at", -1).skip(skip).limit(limit).to_list(limit)
 
-    # Attach seller info
+    # Attach seller info (batch query)
+    seller_ids = list(set(p.get("seller_id") for p in products if p.get("seller_id")))
+    sellers_list = await db.users.find({"user_id": {"$in": seller_ids}}, {"_id": 0, "password_hash": 0}).to_list(len(seller_ids))
+    sellers_map = {s["user_id"]: s for s in sellers_list}
     for p in products:
-        seller = await db.users.find_one({"user_id": p.get("seller_id")}, {"_id": 0, "password_hash": 0})
-        p["seller"] = seller
+        p["seller"] = sellers_map.get(p.get("seller_id"))
 
     return {"products": products, "total": total, "page": page, "pages": (total + limit - 1) // limit}
 
@@ -582,9 +584,11 @@ async def get_favorites(user: dict = Depends(get_current_user)):
     favs = await db.favorites.find({"user_id": user["user_id"]}, {"_id": 0}).to_list(1000)
     product_ids = [f["product_id"] for f in favs]
     products = await db.products.find({"product_id": {"$in": product_ids}}, {"_id": 0}).to_list(1000)
+    seller_ids = list(set(p.get("seller_id") for p in products if p.get("seller_id")))
+    sellers_list = await db.users.find({"user_id": {"$in": seller_ids}}, {"_id": 0, "password_hash": 0}).to_list(len(seller_ids))
+    sellers_map = {s["user_id"]: s for s in sellers_list}
     for p in products:
-        seller = await db.users.find_one({"user_id": p.get("seller_id")}, {"_id": 0, "password_hash": 0})
-        p["seller"] = seller
+        p["seller"] = sellers_map.get(p.get("seller_id"))
     return products
 
 # ============ MESSAGES ENDPOINTS ============
@@ -632,10 +636,12 @@ async def get_conversations(user: dict = Depends(get_current_user)):
     ]
     convos = await db.messages.aggregate(pipeline).to_list(100)
     result = []
+    user_ids = [c["_id"] for c in convos]
+    others_list = await db.users.find({"user_id": {"$in": user_ids}}, {"_id": 0, "password_hash": 0}).to_list(len(user_ids))
+    others_map = {u["user_id"]: u for u in others_list}
     for c in convos:
-        other = await db.users.find_one({"user_id": c["_id"]}, {"_id": 0, "password_hash": 0})
         result.append({
-            "user": other,
+            "user": others_map.get(c["_id"]),
             "last_message": c["last_message"],
             "last_date": c["last_date"],
             "unread": c["unread"]
