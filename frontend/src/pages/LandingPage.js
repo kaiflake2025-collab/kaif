@@ -15,8 +15,21 @@ const CATEGORY_ICONS = {
   realestate: Home, clothing: Shirt, other: Package
 };
 
+const CATEGORY_NAMES = {
+  food: { ru: 'Продукты', en: 'Food', zh: '食品' },
+  services: { ru: 'Услуги', en: 'Services', zh: '服务' },
+  construction: { ru: 'Строительство', en: 'Construction', zh: '建筑' },
+  transport: { ru: 'Транспорт', en: 'Transport', zh: '交通' },
+  electronics: { ru: 'Электроника', en: 'Electronics', zh: '电子' },
+  health: { ru: 'Здоровье', en: 'Health', zh: '健康' },
+  education: { ru: 'Образование', en: 'Education', zh: '教育' },
+  realestate: { ru: 'Недвижимость', en: 'Real Estate', zh: '房产' },
+  clothing: { ru: 'Одежда', en: 'Clothing', zh: '服装' },
+  other: { ru: 'Другое', en: 'Other', zh: '其他' }
+};
+
 export default function LandingPage() {
-  const { t } = useLanguage();
+  const { t, lang } = useLanguage();
   const navigate = useNavigate();
 
   return (
