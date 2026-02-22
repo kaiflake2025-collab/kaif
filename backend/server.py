@@ -218,28 +218,101 @@ async def login(data: UserLogin):
     user_response = {k: v for k, v in user.items() if k != "password_hash"}
     return {"token": token, "user": user_response}
 
-@api_router.post("/auth/session")
-async def exchange_session(request: Request):
+@api_router.post("/auth/oauth/yandex")
+async def oauth_yandex(request: Request):
+    """Exchange Yandex OAuth code for JWT token"""
     body = await request.json()
-    session_id = body.get("session_id")
-    if not session_id:
-        raise HTTPException(status_code=400, detail="session_id required")
+    code = body.get("code")
+    redirect_uri = body.get("redirect_uri")
+    if not code:
+        raise HTTPException(status_code=400, detail="code required")
 
-    async with httpx.AsyncClient() as client_http:
-        resp = await client_http.get(
-            "https://demobackend.emergentagent.com/auth/v1/env/oauth/session-data",
-            headers={"X-Session-ID": session_id}
+    async with httpx.AsyncClient() as http:
+        # Exchange code for access token
+        token_resp = await http.post(
+            "https://oauth.yandex.ru/token",
+            data={
+                "grant_type": "authorization_code",
+                "code": code,
+                "client_id": YANDEX_CLIENT_ID,
+                "client_secret": YANDEX_CLIENT_SECRET,
+                "redirect_uri": redirect_uri
+            },
+            headers={"Content-Type": "application/x-www-form-urlencoded"}
         )
-        if resp.status_code != 200:
-            raise HTTPException(status_code=401, detail="Invalid session")
-        data = resp.json()
+        if token_resp.status_code != 200:
+            logger.error(f"Yandex token error: {token_resp.text}")
+            raise HTTPException(status_code=401, detail="Yandex auth failed")
+        tokens = token_resp.json()
 
-    email = data["email"]
-    name = data.get("name", "")
-    picture = data.get("picture", "")
-    session_token = data["session_token"]
+        # Get user info
+        user_resp = await http.get(
+            "https://login.yandex.ru/info",
+            params={"format": "json"},
+            headers={"Authorization": f"OAuth {tokens['access_token']}"}
+        )
+        if user_resp.status_code != 200:
+            raise HTTPException(status_code=401, detail="Failed to get Yandex user info")
+        yandex_user = user_resp.json()
 
-    # Find or create user
+    email = yandex_user.get("default_email") or yandex_user.get("emails", [None])[0]
+    name = yandex_user.get("display_name") or yandex_user.get("real_name") or yandex_user.get("login", "")
+    avatar = f"https://avatars.yandex.net/get-yapic/{yandex_user.get('default_avatar_id', '')}/islands-200" if yandex_user.get('default_avatar_id') else ""
+
+    if not email:
+        raise HTTPException(status_code=400, detail="Email not available from Yandex")
+
+    return await _create_or_login_oauth_user(email, name, avatar, "yandex")
+
+
+@api_router.post("/auth/oauth/mailru")
+async def oauth_mailru(request: Request):
+    """Exchange Mail.ru OAuth code for JWT token"""
+    body = await request.json()
+    code = body.get("code")
+    redirect_uri = body.get("redirect_uri")
+    if not code:
+        raise HTTPException(status_code=400, detail="code required")
+
+    async with httpx.AsyncClient() as http:
+        # Exchange code for access token
+        token_resp = await http.post(
+            "https://oauth.mail.ru/token",
+            data={
+                "grant_type": "authorization_code",
+                "code": code,
+                "client_id": MAILRU_CLIENT_ID,
+                "client_secret": MAILRU_CLIENT_SECRET,
+                "redirect_uri": redirect_uri
+            },
+            headers={"Content-Type": "application/x-www-form-urlencoded"}
+        )
+        if token_resp.status_code != 200:
+            logger.error(f"Mail.ru token error: {token_resp.text}")
+            raise HTTPException(status_code=401, detail="Mail.ru auth failed")
+        tokens = token_resp.json()
+
+        # Get user info
+        user_resp = await http.get(
+            "https://oauth.mail.ru/userinfo",
+            params={"access_token": tokens["access_token"]}
+        )
+        if user_resp.status_code != 200:
+            raise HTTPException(status_code=401, detail="Failed to get Mail.ru user info")
+        mailru_user = user_resp.json()
+
+    email = mailru_user.get("email")
+    name = mailru_user.get("name") or f"{mailru_user.get('first_name', '')} {mailru_user.get('last_name', '')}".strip()
+    avatar = mailru_user.get("image", "")
+
+    if not email:
+        raise HTTPException(status_code=400, detail="Email not available from Mail.ru")
+
+    return await _create_or_login_oauth_user(email, name, avatar, "mailru")
+
+
+async def _create_or_login_oauth_user(email: str, name: str, avatar: str, provider: str):
+    """Find or create user from OAuth, return JWT token"""
     user = await db.users.find_one({"email": email}, {"_id": 0})
     if not user:
         user_id = f"user_{uuid.uuid4().hex[:12]}"
@@ -247,41 +320,32 @@ async def exchange_session(request: Request):
             "user_id": user_id,
             "email": email,
             "name": name,
-            "avatar": picture,
+            "avatar": avatar,
             "role": "client",
             "phone": None,
             "shareholder_number": None,
             "inn": None,
             "is_blocked": False,
             "is_verified": True,
+            "oauth_provider": provider,
             "created_at": datetime.now(timezone.utc).isoformat()
         }
         await db.users.insert_one(user)
         user = await db.users.find_one({"email": email}, {"_id": 0})
     else:
-        await db.users.update_one({"email": email}, {"$set": {"name": name, "avatar": picture}})
+        update = {"name": name, "oauth_provider": provider}
+        if avatar:
+            update["avatar"] = avatar
+        await db.users.update_one({"email": email}, {"$set": update})
         user = await db.users.find_one({"email": email}, {"_id": 0})
 
-    # Store session
-    await db.user_sessions.insert_one({
-        "session_token": session_token,
-        "user_id": user["user_id"],
-        "expires_at": (datetime.now(timezone.utc) + timedelta(days=7)).isoformat(),
-        "created_at": datetime.now(timezone.utc).isoformat()
-    })
+    token = jwt.encode(
+        {"user_id": user["user_id"], "exp": datetime.now(timezone.utc) + timedelta(hours=JWT_EXPIRY_HOURS)},
+        JWT_SECRET, algorithm=JWT_ALGORITHM
+    )
 
     user_response = {k: v for k, v in user.items() if k not in ("password_hash", "_id")}
-    response = JSONResponse(content={"user": user_response, "token": session_token})
-    response.set_cookie(
-        key="session_token",
-        value=session_token,
-        httponly=True,
-        secure=True,
-        samesite="none",
-        path="/",
-        max_age=7 * 24 * 3600
-    )
-    return response
+    return {"user": user_response, "token": token}
 
 @api_router.get("/auth/me")
 async def get_me(user: dict = Depends(get_current_user)):
