@@ -37,10 +37,7 @@ function DashboardRouter() {
 function AppRouter() {
   const location = useLocation();
 
-  // Check URL fragment for session_id synchronously during render
-  if (location.hash?.includes('session_id=')) {
-    return <AuthCallback />;
-  }
+  // No more Google OAuth hash check needed
 
   return (
     <>
@@ -48,6 +45,7 @@ function AppRouter() {
       <Routes>
         <Route path="/" element={<LandingPage />} />
         <Route path="/auth" element={<AuthPage />} />
+        <Route path="/auth/callback/:provider" element={<AuthCallback />} />
         <Route path="/catalog" element={<CatalogPage />} />
         <Route path="/products/:productId" element={<ProductDetailPage />} />
         <Route path="/dashboard" element={<ProtectedRoute><DashboardRouter /></ProtectedRoute>} />
