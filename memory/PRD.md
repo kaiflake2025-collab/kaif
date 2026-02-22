@@ -23,7 +23,7 @@ Multi-functional aggregator website for the "KAIF OZERO" consumer cooperative. T
 
 ### Authentication & Users
 - JWT-based register/login for Admin, Shareholder, Client
-- Google OAuth (Emergent-managed) session support
+- **OAuth через Яндекс ID и Mail.ru** (Google OAuth удалён)
 - User profile management, role management (admin)
 
 ### Content Management (Admin)
