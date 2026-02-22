@@ -26,6 +26,12 @@ JWT_SECRET = os.environ.get('JWT_SECRET', 'kaif-ozero-secret-key-2024-secure-pro
 JWT_ALGORITHM = "HS256"
 JWT_EXPIRY_HOURS = 168  # 7 days
 
+# OAuth config
+YANDEX_CLIENT_ID = os.environ.get('YANDEX_CLIENT_ID', '')
+YANDEX_CLIENT_SECRET = os.environ.get('YANDEX_CLIENT_SECRET', '')
+MAILRU_CLIENT_ID = os.environ.get('MAILRU_CLIENT_ID', '')
+MAILRU_CLIENT_SECRET = os.environ.get('MAILRU_CLIENT_SECRET', '')
+
 app = FastAPI()
 api_router = APIRouter(prefix="/api")
 
