@@ -1,0 +1,382 @@
+# ====================================================================
+# ИНСТРУКЦИЯ ПО НАСТРОЙКЕ САЙТА KAIF-LAKE.RU
+# ====================================================================
+# Домен: kaif-lake.ru
+# Хостинг: reg.ru с ISPmanager 6 Lite
+# Почта: support@kaif-lake.ru
+# ====================================================================
+
+
+## 1. НАСТРОЙКА ДОМЕНА И DNS (reg.ru)
+## ====================================================================
+
+### 1.1 Привязка домена к хостингу
+
+1. Войдите в личный кабинет reg.ru: https://www.reg.ru/user/account
+2. Перейдите в раздел «Домены» → выберите kaif-lake.ru
+3. Нажмите «DNS-серверы / Управление»
+4. Укажите DNS-серверы вашего хостинга reg.ru:
+   - ns1.hosting.reg.ru
+   - ns2.hosting.reg.ru
+   (Если у вас VPS, укажите DNS от вашего тарифа — они указаны в письме при покупке)
+5. Сохраните изменения. Обновление DNS занимает от 15 минут до 48 часов.
+
+### 1.2 Привязка домена в ISPmanager
+
+1. Войдите в ISPmanager 6 Lite по адресу: https://ваш-ip:1500 или через панель reg.ru
+2. Перейдите в «Сайты» → «Создать сайт»
+3. Укажите:
+   - Имя: kaif-lake.ru
+   - Алиасы: www.kaif-lake.ru
+   - IP-адрес: выберите ваш IP
+   - Корневая директория: /var/www/kaif-lake.ru (создастся автоматически)
+4. Нажмите «Создать»
+
+### 1.3 Настройка SSL-сертификата (бесплатный Let's Encrypt)
+
+1. В ISPmanager перейдите в «SSL-сертификаты» → «Создать»
+2. Тип: Let's Encrypt
+3. Домен: kaif-lake.ru
+4. Поставьте галочку «Wildcard» если нужен *.kaif-lake.ru
+5. Нажмите «Создать»
+6. После выпуска перейдите в «Сайты» → kaif-lake.ru → «Изменить»
+7. Включите «Перенаправление на HTTPS»
+
+
+## 2. ЗАГРУЗКА ФАЙЛОВ САЙТА В ISPMANAGER
+## ====================================================================
+
+### 2.1 Предварительная сборка проекта
+
+Перед загрузкой нужно собрать проект. На вашем компьютере:
+
+  # 1. Склонируйте код с GitHub (после "Save to GitHub" на Emergent)
+  git clone https://github.com/ваш-репозиторий/kaif-ozero.git
+  cd kaif-ozero
+
+  # 2. Соберите фронтенд
+  cd frontend
+  yarn install
+  yarn build
+  # Результат: папка frontend/build/ — это статические файлы сайта
+
+  # 3. Подготовьте бэкенд
+  cd ../backend
+  pip install -r requirements.txt
+
+### 2.2 Вариант А: Только фронтенд (статический сайт через Nginx)
+
+Если вы хотите разместить только фронтенд (без Python-бэкенда):
+
+1. В ISPmanager перейдите в «Менеджер файлов»
+2. Откройте /var/www/kaif-lake.ru/
+3. Загрузите содержимое папки frontend/build/ в эту директорию
+   - Или используйте «Загрузить файл» → загрузите ZIP-архив → распакуйте
+4. Убедитесь, что файл index.html находится в корне /var/www/kaif-lake.ru/
+
+### 2.3 Вариант Б: Полный стек (React + FastAPI + MongoDB) — рекомендуемый
+
+Для полноценной работы сайта нужен VPS с возможностью запуска Python.
+
+1. Подключитесь к серверу по SSH:
+   ssh root@ваш-ip-адрес
+
+2. Установите необходимое ПО:
+   # Обновление системы
+   apt update && apt upgrade -y
+
+   # Установка Python 3.11+
+   apt install python3 python3-pip python3-venv -y
+
+   # Установка Node.js 18+
+   curl -fsSL https://deb.nodesource.com/setup_18.x | bash -
+   apt install nodejs -y
+   npm install -g yarn
+
+   # Установка MongoDB
+   # Следуйте инструкции: https://www.mongodb.com/docs/manual/tutorial/install-mongodb-on-ubuntu/
+
+   # Установка Nginx
+   apt install nginx -y
+
+3. Загрузите файлы проекта:
+   cd /var/www
+   git clone https://github.com/ваш-репозиторий/kaif-ozero.git kaif-lake.ru
+   cd kaif-lake.ru
+
+4. Настройте бэкенд:
+   cd backend
+   python3 -m venv venv
+   source venv/bin/activate
+   pip install -r requirements.txt
+
+   # Создайте файл .env
+   nano .env
+   # Содержимое:
+   MONGO_URL="mongodb://localhost:27017"
+   DB_NAME="kaif_ozero"
+   JWT_SECRET="ваш-секретный-ключ-минимум-32-символа"
+   CORS_ORIGINS="https://kaif-lake.ru,https://www.kaif-lake.ru"
+   YANDEX_CLIENT_ID="ваш_yandex_client_id"
+   YANDEX_CLIENT_SECRET="ваш_yandex_client_secret"
+   MAILRU_CLIENT_ID="ваш_mailru_client_id"
+   MAILRU_CLIENT_SECRET="ваш_mailru_client_secret"
+
+5. Соберите фронтенд:
+   cd ../frontend
+   # Создайте .env файл
+   nano .env
+   # Содержимое:
+   REACT_APP_BACKEND_URL=https://kaif-lake.ru
+
+   yarn install
+   yarn build
+
+6. Настройте Nginx (файл /etc/nginx/sites-available/kaif-lake.ru):
+
+   server {
+       listen 80;
+       server_name kaif-lake.ru www.kaif-lake.ru;
+       return 301 https://$server_name$request_uri;
+   }
+
+   server {
+       listen 443 ssl http2;
+       server_name kaif-lake.ru www.kaif-lake.ru;
+
+       ssl_certificate /etc/letsencrypt/live/kaif-lake.ru/fullchain.pem;
+       ssl_certificate_key /etc/letsencrypt/live/kaif-lake.ru/privkey.pem;
+
+       # Фронтенд (статические файлы)
+       root /var/www/kaif-lake.ru/frontend/build;
+       index index.html;
+
+       location / {
+           try_files $uri $uri/ /index.html;
+       }
+
+       # Бэкенд API
+       location /api/ {
+           proxy_pass http://127.0.0.1:8001;
+           proxy_set_header Host $host;
+           proxy_set_header X-Real-IP $remote_addr;
+           proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+           proxy_set_header X-Forwarded-Proto $scheme;
+       }
+   }
+
+   # Активируйте конфигурацию:
+   ln -s /etc/nginx/sites-available/kaif-lake.ru /etc/nginx/sites-enabled/
+   nginx -t
+   systemctl reload nginx
+
+7. Настройте автозапуск бэкенда через systemd:
+
+   # Создайте файл /etc/systemd/system/kaif-backend.service:
+   [Unit]
+   Description=KAIF OZERO Backend
+   After=network.target mongod.service
+
+   [Service]
+   User=www-data
+   WorkingDirectory=/var/www/kaif-lake.ru/backend
+   Environment="PATH=/var/www/kaif-lake.ru/backend/venv/bin"
+   ExecStart=/var/www/kaif-lake.ru/backend/venv/bin/uvicorn server:app --host 0.0.0.0 --port 8001 --workers 2
+   Restart=always
+   RestartSec=5
+
+   [Install]
+   WantedBy=multi-user.target
+
+   # Запустите:
+   systemctl daemon-reload
+   systemctl enable kaif-backend
+   systemctl start kaif-backend
+
+8. Проверьте работу:
+   systemctl status kaif-backend
+   curl http://localhost:8001/api/health
+   # Должно вернуть: {"status":"healthy"}
+
+
+## 3. УДАЛЕНИЕ НАДПИСИ "MADE WITH EMERGENT"
+## ====================================================================
+
+Надпись "Made with Emergent" добавляется в файл public/index.html.
+После экспорта кода через "Save to GitHub":
+
+1. Откройте файл frontend/public/index.html
+
+2. Найдите и УДАЛИТЕ весь блок (примерно 30 строк):
+
+   <a id="emergent-badge" target="_blank" href="https://app.emergent.sh/..." ... >
+       <svg ...>...</svg>
+       <p ...>Made with Emergent</p>
+   </a>
+
+3. Также удалите блок скрипта PostHog (аналитика Emergent) в конце файла:
+   <script>!(function(t,e){...posthog...})(document, window.posthog || []);</script>
+
+4. Удалите блок скрипта Emergent:
+   <script src="https://assets.emergent.sh/scripts/emergent-main.js"></script>
+
+5. Удалите блок скриптов visual edit (if inside iframe):
+   <script>if (window.self !== window.top) {...}</script>
+
+6. Сохраните файл и пересоберите фронтенд:
+   cd frontend
+   yarn build
+
+После этого надпись полностью исчезнет.
+
+
+## 4. НАСТРОЙКА ПОЧТЫ support@kaif-lake.ru (reg.ru)
+## ====================================================================
+
+### 4.1 Создание почтового ящика
+
+1. В ISPmanager перейдите в «Почта» → «Почтовые домены»
+2. Нажмите «Создать» и укажите домен: kaif-lake.ru
+3. Перейдите в «Почтовые ящики» → «Создать»
+4. Укажите:
+   - Имя: support
+   - Домен: kaif-lake.ru
+   - Пароль: (установите надёжный пароль)
+5. Нажмите «Создать»
+
+### 4.2 Настройка DNS-записей для почты
+
+В ISPmanager (или в DNS-панели reg.ru) добавьте записи:
+
+  Тип   | Имя              | Значение
+  ------|------------------|------------------------------------------
+  MX    | kaif-lake.ru     | mail.kaif-lake.ru (приоритет 10)
+  A     | mail             | ваш-IP-адрес
+  TXT   | kaif-lake.ru     | v=spf1 ip4:ваш-IP-адрес ~all
+  TXT   | _dmarc           | v=DMARC1; p=none; rua=mailto:support@kaif-lake.ru
+
+### 4.3 Настройка DKIM
+
+1. В ISPmanager перейдите в «Почта» → «Почтовые домены» → kaif-lake.ru → «Изменить»
+2. Включите DKIM-подпись
+3. ISPmanager автоматически сгенерирует DKIM-ключ
+4. Добавьте соответствующую TXT-запись в DNS (ISPmanager покажет значение)
+
+### 4.4 Доступ к почте
+
+- Веб-интерфейс (Roundcube): https://ваш-ip:1500/roundcube/
+  или https://mail.kaif-lake.ru/roundcube/
+- IMAP: mail.kaif-lake.ru, порт 993 (SSL)
+- SMTP: mail.kaif-lake.ru, порт 465 (SSL)
+- Логин: support@kaif-lake.ru
+- Пароль: установленный вами
+
+### 4.5 Настройка в почтовых клиентах
+
+Thunderbird / Outlook / мобильные:
+- Сервер входящей почты (IMAP): mail.kaif-lake.ru:993 (SSL/TLS)
+- Сервер исходящей почты (SMTP): mail.kaif-lake.ru:465 (SSL/TLS)
+- Имя пользователя: support@kaif-lake.ru
+
+
+## 5. НАСТРОЙКА АВТОРИЗАЦИИ ЧЕРЕЗ ЯНДЕКС И MAIL.RU
+## ====================================================================
+
+### 5.1 Регистрация приложения в Яндексе
+
+1. Перейдите на https://oauth.yandex.ru/client/new
+2. Заполните:
+   - Название: КАЙФ ОЗЕРО
+   - Платформы: «Веб-сервисы» → Redirect URI: https://kaif-lake.ru/auth/callback/yandex
+   - Доступы: отметьте «Доступ к логину, имени и фамилии» и «Доступ к адресу электронной почты»
+3. Нажмите «Создать приложение»
+4. Запишите Client ID и Client Secret
+
+### 5.2 Регистрация приложения в Mail.ru
+
+1. Перейдите на https://o2.mail.ru/app/
+2. Нажмите «Создать приложение»
+3. Заполните:
+   - Название: КАЙФ ОЗЕРО
+   - Redirect URI: https://kaif-lake.ru/auth/callback/mailru
+   - Платформа: Веб
+4. Нажмите «Создать»
+5. Запишите Client ID (App ID) и Client Secret (Secret Key)
+6. В разделе «Доступ» добавьте тестовых пользователей
+7. Подайте приложение на модерацию для доступа всех пользователей
+
+### 5.3 Добавление ключей в .env бэкенда
+
+Откройте файл backend/.env и добавьте:
+
+  YANDEX_CLIENT_ID=ваш_client_id_от_яндекса
+  YANDEX_CLIENT_SECRET=ваш_client_secret_от_яндекса
+  MAILRU_CLIENT_ID=ваш_client_id_от_mailru
+  MAILRU_CLIENT_SECRET=ваш_client_secret_от_mailru
+
+### 5.4 Добавление ключей в .env фронтенда
+
+Откройте файл frontend/.env и добавьте:
+
+  REACT_APP_YANDEX_CLIENT_ID=ваш_client_id_от_яндекса
+  REACT_APP_MAILRU_CLIENT_ID=ваш_client_id_от_mailru
+
+После изменения .env пересоберите фронтенд:
+  cd frontend && yarn build
+
+### 5.5 Проверка работы OAuth
+
+1. Откройте https://kaif-lake.ru/auth
+2. Нажмите кнопку «Войти через Яндекс» — должно перенаправить на Яндекс
+3. После авторизации — перенаправление обратно в личный кабинет
+4. Аналогично для Mail.ru
+
+
+## 6. ЧАСТЫЕ ПРОБЛЕМЫ И РЕШЕНИЯ
+## ====================================================================
+
+### Сайт не открывается после смены DNS
+- DNS обновляется до 48 часов. Проверьте: nslookup kaif-lake.ru
+- Убедитесь, что A-запись указывает на IP вашего сервера
+
+### 502 Bad Gateway
+- Бэкенд не запущен: systemctl status kaif-backend
+- Проверьте логи: journalctl -u kaif-backend -f
+
+### MongoDB не подключается
+- Проверьте статус: systemctl status mongod
+- Проверьте URL в backend/.env
+
+### Почта уходит в спам
+- Проверьте SPF, DKIM и DMARC записи
+- Проверьте на https://mxtoolbox.com/
+- Настройте PTR-запись (обратный DNS) через reg.ru
+
+### SSL-сертификат не выпускается
+- Убедитесь, что DNS уже обновился (A-запись указывает на сервер)
+- Проверьте: certbot certonly --nginx -d kaif-lake.ru -d www.kaif-lake.ru
+
+### OAuth не работает
+- Проверьте Redirect URI — должен точно совпадать
+- Убедитесь, что приложение прошло модерацию (для Mail.ru)
+- Проверьте Client ID и Secret в .env файлах
+
+
+## ====================================================================
+## КОНТРОЛЬНЫЙ ЧЕКЛИСТ
+## ====================================================================
+
+[ ] Домен kaif-lake.ru привязан к хостингу
+[ ] DNS A-запись указывает на IP сервера
+[ ] SSL-сертификат выпущен и работает
+[ ] Файлы сайта загружены
+[ ] Nginx настроен (фронтенд + проксирование API)
+[ ] MongoDB установлен и запущен
+[ ] Бэкенд запущен через systemd
+[ ] Надпись "Made with Emergent" удалена из index.html
+[ ] Почта support@kaif-lake.ru создана
+[ ] MX, SPF, DKIM, DMARC записи настроены
+[ ] Яндекс OAuth приложение создано, ключи добавлены в .env
+[ ] Mail.ru OAuth приложение создано, ключи добавлены в .env
+[ ] Авторизация через Google удалена
+[ ] Всё работает: сайт, API, почта, OAuth
