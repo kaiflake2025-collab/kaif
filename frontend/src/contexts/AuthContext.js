@@ -9,13 +9,6 @@ export function AuthProvider({ children }) {
   const [loading, setLoading] = useState(true);
 
   const checkAuth = useCallback(async () => {
-    // CRITICAL: If returning from OAuth callback, skip the /me check.
-    // AuthCallback will exchange the session_id and establish the session first.
-    if (window.location.hash?.includes('session_id=')) {
-      setLoading(false);
-      return;
-    }
-
     const storedToken = localStorage.getItem('token');
     if (!storedToken) {
       setLoading(false);
@@ -82,10 +75,34 @@ export function AuthProvider({ children }) {
     return data;
   };
 
-  const loginWithGoogle = () => {
-    // REMINDER: DO NOT HARDCODE THE URL, OR ADD ANY FALLBACKS OR REDIRECT URLS, THIS BREAKS THE AUTH
-    const redirectUrl = window.location.origin + '/dashboard';
-    window.location.href = `https://auth.emergentagent.com/?redirect=${encodeURIComponent(redirectUrl)}`;
+  const loginWithYandex = () => {
+    const redirectUri = window.location.origin + '/auth/callback/yandex';
+    const clientId = process.env.REACT_APP_YANDEX_CLIENT_ID;
+    window.location.href = `https://oauth.yandex.ru/authorize?client_id=${clientId}&response_type=code&redirect_uri=${encodeURIComponent(redirectUri)}&scope=login:email+login:info`;
+  };
+
+  const loginWithMailru = () => {
+    const redirectUri = window.location.origin + '/auth/callback/mailru';
+    const clientId = process.env.REACT_APP_MAILRU_CLIENT_ID;
+    window.location.href = `https://oauth.mail.ru/login?client_id=${clientId}&response_type=code&redirect_uri=${encodeURIComponent(redirectUri)}&scope=userinfo`;
+  };
+
+  const oauthCallback = async (provider, code) => {
+    const redirectUri = window.location.origin + `/auth/callback/${provider}`;
+    const res = await fetch(`${API}/auth/oauth/${provider}`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ code, redirect_uri: redirectUri })
+    });
+    if (!res.ok) {
+      const err = await res.json();
+      throw new Error(err.detail || 'OAuth failed');
+    }
+    const data = await res.json();
+    localStorage.setItem('token', data.token);
+    setToken(data.token);
+    setUser(data.user);
+    return data;
   };
 
   const setAuthData = (userData, authToken) => {
@@ -108,7 +125,7 @@ export function AuthProvider({ children }) {
   };
 
   return (
-    <AuthContext.Provider value={{ user, token, loading, login, register, loginWithGoogle, setAuthData, logout, checkAuth }}>
+    <AuthContext.Provider value={{ user, token, loading, login, register, loginWithYandex, loginWithMailru, oauthCallback, setAuthData, logout, checkAuth }}>
       {children}
     </AuthContext.Provider>
   );
