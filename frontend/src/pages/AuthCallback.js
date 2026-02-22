@@ -1,50 +1,48 @@
 import React, { useRef, useEffect } from 'react';
-import { useNavigate, useLocation } from 'react-router-dom';
+import { useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
-
-const API = `${process.env.REACT_APP_BACKEND_URL}/api`;
+import { toast } from 'sonner';
 
 export default function AuthCallback() {
   const hasProcessed = useRef(false);
   const navigate = useNavigate();
-  const location = useLocation();
-  const { setAuthData } = useAuth();
+  const { provider } = useParams();
+  const [searchParams] = useSearchParams();
+  const { oauthCallback } = useAuth();
 
   useEffect(() => {
     if (hasProcessed.current) return;
     hasProcessed.current = true;
 
-    const hash = location.hash || window.location.hash;
-    const params = new URLSearchParams(hash.replace('#', ''));
-    const sessionId = params.get('session_id');
+    const code = searchParams.get('code');
 
-    if (!sessionId) {
+    if (!code || !provider) {
+      toast.error('Ошибка авторизации');
       navigate('/auth', { replace: true });
       return;
     }
 
-    const exchangeSession = async () => {
+    const exchangeCode = async () => {
       try {
-        const res = await fetch(`${API}/auth/session`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          credentials: 'include',
-          body: JSON.stringify({ session_id: sessionId })
-        });
-
-        if (!res.ok) throw new Error('Session exchange failed');
-
-        const data = await res.json();
-        setAuthData(data.user, data.token);
-        navigate('/dashboard', { replace: true, state: { user: data.user } });
+        await oauthCallback(provider, code);
+        toast.success('Авторизация успешна');
+        navigate('/dashboard', { replace: true });
       } catch (err) {
-        console.error('Auth callback error:', err);
+        console.error('OAuth callback error:', err);
+        toast.error(err.message || 'Ошибка авторизации');
         navigate('/auth', { replace: true });
       }
     };
 
-    exchangeSession();
-  }, [location.hash, navigate, setAuthData]);
+    exchangeCode();
+  }, [provider, searchParams, navigate, oauthCallback]);
 
-  return null;
+  return (
+    <div className="min-h-screen flex items-center justify-center" data-testid="auth-callback">
+      <div className="text-center space-y-4">
+        <div className="w-8 h-8 border-2 border-primary border-t-transparent rounded-full animate-spin mx-auto" />
+        <p className="text-muted-foreground text-sm">Авторизация...</p>
+      </div>
+    </div>
+  );
 }
